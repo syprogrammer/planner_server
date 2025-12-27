@@ -1,16 +1,18 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AppType } from '@prisma/client';
 
 export class CreateAppDto {
     name: string;
     type: AppType;
+    icon?: string;
     projectId: string;
 }
 
 export class UpdateAppDto {
     name?: string;
     type?: AppType;
+    icon?: string;
 }
 
 @Injectable()
@@ -18,10 +20,23 @@ export class AppsService {
     constructor(private prisma: PrismaService) { }
 
     async create(dto: CreateAppDto) {
+        // Check for duplicates
+        const existingApp = await this.prisma.app.findFirst({
+            where: {
+                projectId: dto.projectId,
+                name: dto.name,
+            },
+        });
+
+        if (existingApp) {
+            throw new ConflictException('App with this name already exists in the project');
+        }
+
         return this.prisma.app.create({
             data: {
                 name: dto.name,
                 type: dto.type,
+                icon: dto.icon,
                 projectId: dto.projectId,
             },
             include: {

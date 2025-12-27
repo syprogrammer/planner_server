@@ -8,6 +8,9 @@ import { TasksModule } from './tasks/tasks.module';
 import { BugSheetsModule } from './bug-sheets/bug-sheets.module';
 import { CommentsModule } from './comments/comments.module';
 import { ModulesModule } from './modules/modules.module';
+import { ActivityModule } from './activity/activity.module';
+import { UserVisitsModule } from './user-visits/user-visits.module';
+import { UserStarredModule } from './user-starred/user-starred.module';
 import { ConfigModule } from '@nestjs/config';
 @Module({
   imports: [
@@ -22,8 +25,13 @@ import { ConfigModule } from '@nestjs/config';
     TasksModule,
     BugSheetsModule,
     CommentsModule,
+    ActivityModule,
+    UserVisitsModule,
+    UserStarredModule,
   ],
   controllers: [AppController],
   providers: [AppService],
 })
 export class AppModule { }
+
+

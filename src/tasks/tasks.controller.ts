@@ -8,17 +8,35 @@ import {
     Body,
     Param,
     Query,
+    Headers,
 } from '@nestjs/common';
-import { TasksService, CreateTaskDto, UpdateTaskDto } from './tasks.service';
+import { TasksService, CreateTaskDto, UpdateTaskDto, ActivityContext } from './tasks.service';
 import { Status } from '@prisma/client';
 
 @Controller('tasks')
 export class TasksController {
     constructor(private readonly tasksService: TasksService) { }
 
+    /**
+     * Extract activity context from request headers
+     */
+    private getActivityContext(
+        userId?: string,
+        userName?: string,
+    ): ActivityContext | undefined {
+        if (userId && userName) {
+            return { userId, userName };
+        }
+        return undefined;
+    }
+
     @Post()
-    create(@Body() dto: CreateTaskDto) {
-        return this.tasksService.create(dto);
+    create(
+        @Body() dto: CreateTaskDto,
+        @Headers('x-user-id') userId?: string,
+        @Headers('x-user-name') userName?: string,
+    ) {
+        return this.tasksService.create(dto, this.getActivityContext(userId, userName));
     }
 
     @Get()
@@ -32,21 +50,23 @@ export class TasksController {
     }
 
     @Put(':id')
-    update(@Param('id') id: string, @Body() dto: UpdateTaskDto) {
-        return this.tasksService.update(id, dto);
+    update(
+        @Param('id') id: string,
+        @Body() dto: UpdateTaskDto,
+        @Headers('x-user-id') userId?: string,
+        @Headers('x-user-name') userName?: string,
+    ) {
+        return this.tasksService.update(id, dto, this.getActivityContext(userId, userName));
     }
 
     @Patch(':id/status')
     updateStatus(
         @Param('id') id: string,
-        @Body() body: { field: string; status: Status },
+        @Body() body: { status: Status },
+        @Headers('x-user-id') userId?: string,
+        @Headers('x-user-name') userName?: string,
     ) {
-        return this.tasksService.updateStatus(id, body.field, body.status);
-    }
-
-    @Patch(':id/move')
-    moveToStatus(@Param('id') id: string, @Body() body: { status: Status }) {
-        return this.tasksService.moveToStatus(id, body.status);
+        return this.tasksService.updateStatus(id, body.status, this.getActivityContext(userId, userName));
     }
 
     @Post('reorder')
@@ -55,7 +75,11 @@ export class TasksController {
     }
 
     @Delete(':id')
-    delete(@Param('id') id: string) {
-        return this.tasksService.delete(id);
+    delete(
+        @Param('id') id: string,
+        @Headers('x-user-id') userId?: string,
+        @Headers('x-user-name') userName?: string,
+    ) {
+        return this.tasksService.delete(id, this.getActivityContext(userId, userName));
     }
 }

@@ -75,7 +75,21 @@ export class ProjectsService {
                     include: {
                         modules: {
                             include: {
-                                tasks: true,
+                                tasks: {
+                                    where: { parentId: null },
+                                    include: {
+                                        subtasks: {
+                                            include: {
+                                                comments: true,
+                                            },
+                                            orderBy: { order: 'asc' },
+                                        },
+                                        comments: {
+                                            orderBy: { createdAt: 'asc' },
+                                        },
+                                    },
+                                    orderBy: { order: 'asc' },
+                                },
                                 _count: { select: { tasks: true } },
                             },
                             orderBy: { order: 'asc' },
@@ -128,7 +142,7 @@ export class ProjectsService {
         const stats = project.apps.map((app) => {
             const tasks = app.modules.flatMap((m) => m.tasks);
             const totalTasks = tasks.length;
-            const doneTasks = tasks.filter((t) => t.devStatus === 'DONE').length;
+            const doneTasks = tasks.filter((t) => t.status === 'DONE').length;
             const progress =
                 totalTasks > 0 ? Math.round((doneTasks / totalTasks) * 100) : 0;
 

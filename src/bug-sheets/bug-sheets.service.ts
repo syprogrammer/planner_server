@@ -1,11 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { Status } from '@prisma/client';
+import { Priority, Status } from '@prisma/client';
 
 export class CreateBugSheetDto {
     module: string;
     description: string;
     appId: string;
+    priority?: Priority;
     assignedTo?: string;
     remarks?: string;
 }
@@ -13,8 +14,8 @@ export class CreateBugSheetDto {
 export class UpdateBugSheetDto {
     module?: string;
     description?: string;
-    devStatus?: Status;
-    qaStatus?: Status;
+    status?: Status;
+    priority?: Priority;
     assignedTo?: string;
     remarks?: string;
 }
@@ -29,6 +30,7 @@ export class BugSheetsService {
                 module: dto.module,
                 description: dto.description,
                 appId: dto.appId,
+                priority: dto.priority || 'MEDIUM',
                 assignedTo: dto.assignedTo,
                 remarks: dto.remarks,
             },

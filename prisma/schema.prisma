@@ -54,6 +54,9 @@ model Project {
   updatedAt      DateTime @updatedAt
   apps           App[]
   members        ProjectMember[]
+  activityLogs   ActivityLog[]
+  userVisits     UserVisit[]
+  userStarred    UserStarred[]
 }
 
 model ProjectMember {
@@ -74,6 +77,7 @@ model App {
   id        String   @id @default(cuid())
   name      String
   type      AppType
+  icon      String?  // Custom icon name
   projectId String
   project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
@@ -86,6 +90,8 @@ enum AppType {
   WEBSITE
   MOBILE
   API
+  BUG_TRACKING
+  CUSTOM
 }
 
 // ============= MODULES/PAGES =============
@@ -109,12 +115,7 @@ model Task {
   description  String?
   type         TaskType   @default(FEATURE)
   priority     Priority   @default(MEDIUM)
-  
-  // Status per role (like Excel)
-  designStatus Status     @default(NOT_STARTED)
-  devStatus    Status     @default(NOT_STARTED)
-  qaStatus     Status     @default(NOT_STARTED)
-  apiStatus    Status     @default(NOT_STARTED)
+  status       Status     @default(TODO)
   
   // Assignment
   assignedTo   String?
@@ -123,6 +124,11 @@ model Task {
   // Dates
   startDate    DateTime?
   endDate      DateTime?
+  
+  // Parent-child relation for subtasks
+  parentId     String?
+  parent       Task?      @relation("Subtasks", fields: [parentId], references: [id], onDelete: Cascade)
+  subtasks     Task[]     @relation("Subtasks")
   
   // Relations
   moduleId     String
@@ -148,13 +154,10 @@ enum Priority {
 }
 
 enum Status {
-  NOT_STARTED
-  WIP
+  TODO
+  IN_PROGRESS
+  IN_REVIEW
   DONE
-  PENDING
-  RESOLVED
-  VERIFIED
-  NR  // Not Required
 }
 
 // ============= BUGSHEET =============
@@ -163,8 +166,8 @@ model BugSheet {
   id          String   @id @default(cuid())
   module      String   // Module/page name
   description String   // Bug description
-  devStatus   Status   @default(NOT_STARTED)
-  qaStatus    Status   @default(NOT_STARTED)
+  status      Status   @default(TODO)
+  priority    Priority @default(MEDIUM) // Added priority
   assignedTo  String?
   remarks     String?
   
@@ -192,3 +195,91 @@ model Comment {
   
   createdAt  DateTime  @default(now())
 }
+
+// ============= ACTIVITY LOG =============
+
+model ActivityLog {
+  id          String         @id @default(cuid())
+  
+  // What happened
+  action      ActivityAction
+  field       String?        // Field that was changed (e.g., "status", "assignee")
+  oldValue    String?        // Previous value
+  newValue    String?        // New value
+  
+  // Who did it
+  userId      String         // Clerk User ID
+  userName    String         // User display name
+  
+  // What entity was affected
+  entityType  EntityType
+  entityId    String         // Task ID or BugSheet ID
+  entityTitle String         // Task/Bug title for display
+  
+  // Context
+  projectId   String
+  project     Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  createdAt   DateTime       @default(now())
+  
+  @@index([projectId, createdAt])
+  @@index([entityType, entityId])
+  @@index([userId])
+}
+
+enum ActivityAction {
+  CREATED
+  UPDATED
+  DELETED
+  STATUS_CHANGED
+  ASSIGNED
+  UNASSIGNED
+  COMMENTED
+  PRIORITY_CHANGED
+}
+
+enum EntityType {
+  TASK
+  BUGSHEET
+  PROJECT
+  MODULE
+}
+
+// ============= USER VISITS =============
+
+model UserVisit {
+  id          String   @id @default(cuid())
+  userId      String   // Clerk User ID
+  
+  // What was visited
+  projectId   String
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectName String   // Denormalized for quick display
+  appId       String?
+  appName     String?  // Denormalized for quick display
+  viewType    String?  // 'list', 'board', 'summary', 'bugsheet'
+  
+  visitedAt   DateTime @default(now())
+  
+  @@index([userId, visitedAt])
+  @@index([projectId])
+}
+
+// ============= USER STARRED =============
+
+model UserStarred {
+  id        String   @id @default(cuid())
+  userId    String   // Clerk User ID
+  
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectName String // Denormalized
+  appId     String?
+  appName   String?  // Denormalized
+  
+  createdAt DateTime @default(now())
+  
+  @@unique([userId, projectId, appId])
+  @@index([userId])
+}
+
