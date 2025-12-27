@@ -1,0 +1,194 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider        = "prisma-client-js"
+  moduleFormat    = "cjs" // Required for NestJS (CommonJS)
+  previewFeatures = ["driverAdapters"]
+}
+
+datasource db {
+  provider = "postgresql"
+  // URL is now configured in prisma.config.ts for Prisma 7+
+}
+
+// ============= ORGANIZATION & USERS =============
+
+model Organization {
+  id        String   @id @default(cuid())
+  clerkOrgId String  @unique // Clerk Organization ID
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  projects  Project[]
+  members   OrganizationMember[]
+}
+
+model OrganizationMember {
+  id             String   @id @default(cuid())
+  clerkUserId    String
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  role           Role     @default(MEMBER)
+  createdAt      DateTime @default(now())
+
+  @@unique([clerkUserId, organizationId])
+}
+
+enum Role {
+  ADMIN
+  MEMBER
+  CLIENT
+}
+
+// ============= PROJECTS =============
+
+model Project {
+  id             String   @id @default(cuid())
+  name           String
+  description    String?
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  clientOrgId    String?  // Client's Clerk Org ID for read-only access
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  apps           App[]
+  members        ProjectMember[]
+}
+
+model ProjectMember {
+  id          String   @id @default(cuid())
+  projectId   String
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  clerkUserId String
+  name        String
+  role        Role     @default(MEMBER)
+  createdAt   DateTime @default(now())
+
+  @@unique([projectId, clerkUserId])
+}
+
+// ============= APPS =============
+
+model App {
+  id        String   @id @default(cuid())
+  name      String
+  type      AppType
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  modules   Module[]
+  bugSheets BugSheet[]
+}
+
+enum AppType {
+  WEBSITE
+  MOBILE
+  API
+}
+
+// ============= MODULES/PAGES =============
+
+model Module {
+  id        String   @id @default(cuid())
+  name      String
+  appId     String
+  app       App      @relation(fields: [appId], references: [id], onDelete: Cascade)
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  tasks     Task[]
+}
+
+// ============= TASKS =============
+
+model Task {
+  id           String     @id @default(cuid())
+  title        String
+  description  String?
+  type         TaskType   @default(FEATURE)
+  priority     Priority   @default(MEDIUM)
+  
+  // Status per role (like Excel)
+  designStatus Status     @default(NOT_STARTED)
+  devStatus    Status     @default(NOT_STARTED)
+  qaStatus     Status     @default(NOT_STARTED)
+  apiStatus    Status     @default(NOT_STARTED)
+  
+  // Assignment
+  assignedTo   String?
+  remarks      String?
+  
+  // Dates
+  startDate    DateTime?
+  endDate      DateTime?
+  
+  // Relations
+  moduleId     String
+  module       Module     @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  comments     Comment[]
+  
+  order        Int        @default(0)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+}
+
+enum TaskType {
+  FEATURE
+  BUG
+  IMPROVEMENT
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum Status {
+  NOT_STARTED
+  WIP
+  DONE
+  PENDING
+  RESOLVED
+  VERIFIED
+  NR  // Not Required
+}
+
+// ============= BUGSHEET =============
+
+model BugSheet {
+  id          String   @id @default(cuid())
+  module      String   // Module/page name
+  description String   // Bug description
+  devStatus   Status   @default(NOT_STARTED)
+  qaStatus    Status   @default(NOT_STARTED)
+  assignedTo  String?
+  remarks     String?
+  
+  appId       String
+  app         App      @relation(fields: [appId], references: [id], onDelete: Cascade)
+  comments    Comment[]
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// ============= COMMENTS =============
+
+model Comment {
+  id         String    @id @default(cuid())
+  content    String
+  authorId   String    // Clerk User ID
+  authorName String
+  
+  // Polymorphic relation - Task OR BugSheet
+  taskId     String?
+  task       Task?     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  bugSheetId String?
+  bugSheet   BugSheet? @relation(fields: [bugSheetId], references: [id], onDelete: Cascade)
+  
+  createdAt  DateTime  @default(now())
+}
