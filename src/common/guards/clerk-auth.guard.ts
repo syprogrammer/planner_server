@@ -18,7 +18,7 @@ export class ClerkAuthGuard implements CanActivate {
         private reflector: Reflector,
     ) {
         this.secretKey = this.configService.get<string>('CLERK_SECRET_KEY') || '';
-        this.logger.log(`Clerk secret key configured: ${this.secretKey ? 'Yes (length: ' + this.secretKey.length + ')' : 'No'}`);
+        // this.logger.log(`Clerk secret key configured: ${this.secretKey ? 'Yes (length: ' + this.secretKey.length + ')' : 'No'}`);
     }
 
     async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -33,6 +33,11 @@ export class ClerkAuthGuard implements CanActivate {
         }
 
         const request = context.switchToHttp().getRequest();
+
+        // Allow CORS preflight requests
+        if (request.method === 'OPTIONS') {
+            return true;
+        }
         const authHeader = request.headers.authorization;
 
         if (!authHeader?.startsWith('Bearer ')) {
