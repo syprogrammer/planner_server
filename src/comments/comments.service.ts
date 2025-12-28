@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { Subject, Observable } from 'rxjs';
 import { filter, map } from 'rxjs/operators';
 
@@ -9,6 +10,8 @@ export class CreateCommentDto {
     authorName: string;
     taskId?: string;
     bugSheetId?: string;
+    // Optional: project members for @mention resolution
+    projectMembers?: { clerkUserId: string; name: string }[];
 }
 
 export interface CommentEvent {
@@ -30,7 +33,33 @@ export interface CommentEvent {
 export class CommentsService {
     private commentSubject = new Subject<CommentEvent>();
 
-    constructor(private prisma: PrismaService) { }
+    constructor(
+        private prisma: PrismaService,
+        private notificationsService: NotificationsService,
+    ) { }
+
+    // Parse @mentions from comment content
+    private parseMentions(content: string, projectMembers?: { clerkUserId: string; name: string }[]) {
+        if (!projectMembers) return [];
+
+        // Match @mentions (e.g., @JohnDoe or @john)
+        const mentionRegex = /@(\w+)/g;
+        const mentions: { clerkUserId: string; name: string }[] = [];
+        let match;
+
+        while ((match = mentionRegex.exec(content)) !== null) {
+            const mentionedName = match[1].toLowerCase();
+            const member = projectMembers.find(
+                m => m.name.toLowerCase().includes(mentionedName) ||
+                    m.name.toLowerCase().replace(/\s/g, '').includes(mentionedName)
+            );
+            if (member && !mentions.some(m => m.clerkUserId === member.clerkUserId)) {
+                mentions.push(member);
+            }
+        }
+
+        return mentions;
+    }
 
     async create(dto: CreateCommentDto) {
         const comment = await this.prisma.comment.create({
@@ -83,6 +112,26 @@ export class CommentsService {
                 createdAt: comment.createdAt,
             },
         });
+
+        // Parse @mentions and create notifications
+        const mentions = this.parseMentions(dto.content, dto.projectMembers);
+        const taskTitle = comment.task?.title || 'Task';
+
+        for (const mentioned of mentions) {
+            // Don't notify the author if they mention themselves
+            if (mentioned.clerkUserId !== dto.authorId) {
+                await this.notificationsService.createMentionNotification(
+                    mentioned.clerkUserId,
+                    mentioned.name,
+                    comment.taskId || comment.bugSheetId || '',
+                    taskTitle,
+                    comment.id,
+                    dto.authorId,
+                    dto.authorName,
+                    projectId,
+                );
+            }
+        }
 
         return comment;
     }

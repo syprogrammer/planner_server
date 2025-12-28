@@ -49,6 +49,11 @@ export class TasksController {
         return this.tasksService.findOne(id);
     }
 
+    @Get(':id/history')
+    findHistory(@Param('id') id: string) {
+        return this.tasksService.findHistory(id);
+    }
+
     @Put(':id')
     update(
         @Param('id') id: string,

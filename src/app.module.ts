@@ -11,6 +11,8 @@ import { ModulesModule } from './modules/modules.module';
 import { ActivityModule } from './activity/activity.module';
 import { UserVisitsModule } from './user-visits/user-visits.module';
 import { UserStarredModule } from './user-starred/user-starred.module';
+import { ProjectMembersModule } from './project-members/project-members.module';
+import { NotificationsModule } from './notifications/notifications.module';
 import { ConfigModule } from '@nestjs/config';
 @Module({
   imports: [
@@ -28,6 +30,8 @@ import { ConfigModule } from '@nestjs/config';
     ActivityModule,
     UserVisitsModule,
     UserStarredModule,
+    ProjectMembersModule,
+    NotificationsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

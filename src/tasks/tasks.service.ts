@@ -11,6 +11,11 @@ export class CreateTaskDto {
     moduleId: string;
     assignedTo?: string;
     parentId?: string;
+    // Audit fields
+    createdBy?: string;
+    creatorName?: string;
+    reporterId?: string;
+    reporterName?: string;
 }
 
 export class UpdateTaskDto {
@@ -24,6 +29,8 @@ export class UpdateTaskDto {
     startDate?: Date;
     endDate?: Date;
     parentId?: string;
+    reporterId?: string;
+    reporterName?: string;
 }
 
 // Context for activity logging
@@ -46,8 +53,45 @@ export class TasksService {
             _max: { order: true },
         });
 
+        // Get module info for generating taskCode
+        const module = await this.prisma.module.findUnique({
+            where: { id: dto.moduleId },
+        });
+
+        if (!module) {
+            throw new BadRequestException('Module not found');
+        }
+
+        let taskCode: string;
+
+        if (dto.parentId) {
+            // This is a subtask - get parent's taskCode and find next subtask index
+            const parentTask = await this.prisma.task.findUnique({
+                where: { id: dto.parentId },
+            });
+
+            // Count existing subtasks to determine the next index
+            const subtaskCount = await this.prisma.task.count({
+                where: { parentId: dto.parentId },
+            });
+
+            taskCode = `${parentTask?.taskCode || 'TASK'}.${subtaskCount + 1}`;
+        } else {
+            // This is a parent task - increment module's taskCounter
+            const prefix = module.name.substring(0, 3).toUpperCase();
+            const nextNumber = module.taskCounter + 1;
+            taskCode = `${prefix}-${nextNumber}`;
+
+            // Update module's taskCounter
+            await this.prisma.module.update({
+                where: { id: dto.moduleId },
+                data: { taskCounter: nextNumber },
+            });
+        }
+
         const task = await this.prisma.task.create({
             data: {
+                taskCode,
                 title: dto.title,
                 description: dto.description,
                 type: dto.type || 'FEATURE',
@@ -56,6 +100,11 @@ export class TasksService {
                 assignedTo: dto.assignedTo,
                 parentId: dto.parentId,
                 order: (maxOrder._max.order ?? -1) + 1,
+                // Audit: set creator and reporter (creator is default reporter)
+                createdBy: context?.userId || dto.createdBy,
+                creatorName: context?.userName || dto.creatorName,
+                reporterId: dto.reporterId || context?.userId || dto.createdBy,
+                reporterName: dto.reporterName || context?.userName || dto.creatorName,
             },
             include: {
                 comments: true,
@@ -130,6 +179,13 @@ export class TasksService {
         });
     }
 
+    async findHistory(taskId: string) {
+        return this.prisma.taskHistory.findMany({
+            where: { taskId },
+            orderBy: { createdAt: 'desc' },
+        });
+    }
+
     async update(id: string, dto: UpdateTaskDto, context?: ActivityContext) {
         // Get current task for comparison
         const currentTask = await this.findOne(id);
@@ -165,17 +221,18 @@ export class TasksService {
             },
         });
 
-        // Log activity if context provided
+        // Log activity and task history if context provided
         if (context && task.module?.app?.project && currentTask) {
             const projectId = task.module.app.project.id;
 
-            // Check for status change
-            if (dto.status && currentTask.status !== dto.status) {
+            // Helper to log both ActivityLog and TaskHistory
+            const logChange = async (field: string, oldValue: string | null | undefined, newValue: string | null | undefined, action: ActivityAction) => {
+                // Log to ActivityLog
                 await this.activityService.logActivity({
-                    action: ActivityAction.STATUS_CHANGED,
-                    field: 'status',
-                    oldValue: currentTask.status,
-                    newValue: dto.status,
+                    action,
+                    field,
+                    oldValue: oldValue || undefined,
+                    newValue: newValue || undefined,
                     userId: context.userId,
                     userName: context.userName,
                     entityType: EntityType.TASK,
@@ -183,39 +240,71 @@ export class TasksService {
                     entityTitle: task.title,
                     projectId,
                 });
+
+                // Log to TaskHistory
+                await this.prisma.taskHistory.create({
+                    data: {
+                        taskId: task.id,
+                        actorId: context.userId,
+                        actorName: context.userName,
+                        field,
+                        oldValue: oldValue || null,
+                        newValue: newValue || null,
+                    },
+                });
+            };
+
+            // Check for status change
+            if (dto.status && currentTask.status !== dto.status) {
+                await logChange('status', currentTask.status, dto.status, ActivityAction.STATUS_CHANGED);
             }
 
             // Check for priority change
             if (dto.priority && currentTask.priority !== dto.priority) {
-                await this.activityService.logActivity({
-                    action: ActivityAction.PRIORITY_CHANGED,
-                    field: 'priority',
-                    oldValue: currentTask.priority,
-                    newValue: dto.priority,
-                    userId: context.userId,
-                    userName: context.userName,
-                    entityType: EntityType.TASK,
-                    entityId: task.id,
-                    entityTitle: task.title,
-                    projectId,
-                });
+                await logChange('priority', currentTask.priority, dto.priority, ActivityAction.PRIORITY_CHANGED);
             }
 
             // Check for assignee change
             if (dto.assignedTo !== undefined && currentTask.assignedTo !== dto.assignedTo) {
                 const action = dto.assignedTo ? ActivityAction.ASSIGNED : ActivityAction.UNASSIGNED;
-                await this.activityService.logActivity({
-                    action,
-                    field: 'assignedTo',
-                    oldValue: currentTask.assignedTo || undefined,
-                    newValue: dto.assignedTo || undefined,
-                    userId: context.userId,
-                    userName: context.userName,
-                    entityType: EntityType.TASK,
-                    entityId: task.id,
-                    entityTitle: task.title,
-                    projectId,
-                });
+                await logChange('assignedTo', currentTask.assignedTo, dto.assignedTo, action);
+            }
+
+            // Check for reporter change
+            if (dto.reporterId !== undefined && currentTask.reporterId !== dto.reporterId) {
+                await logChange('reporter', currentTask.reporterName, dto.reporterName, ActivityAction.UPDATED);
+            }
+
+            // Check for start date change
+            if (dto.startDate !== undefined) {
+                const oldDate = currentTask.startDate ? new Date(currentTask.startDate).toISOString().split('T')[0] : null;
+                const newDate = dto.startDate ? new Date(dto.startDate).toISOString().split('T')[0] : null;
+                if (oldDate !== newDate) {
+                    await logChange('startDate', oldDate, newDate, ActivityAction.UPDATED);
+                }
+            }
+
+            // Check for due date change
+            if (dto.endDate !== undefined) {
+                const oldDate = currentTask.endDate ? new Date(currentTask.endDate).toISOString().split('T')[0] : null;
+                const newDate = dto.endDate ? new Date(dto.endDate).toISOString().split('T')[0] : null;
+                if (oldDate !== newDate) {
+                    await logChange('dueDate', oldDate, newDate, ActivityAction.UPDATED);
+                }
+            }
+
+            // Check for title change
+            if (dto.title && currentTask.title !== dto.title) {
+                await logChange('title', currentTask.title, dto.title, ActivityAction.UPDATED);
+            }
+
+            // Check for description change
+            if (dto.description !== undefined && currentTask.description !== dto.description) {
+                await logChange('description',
+                    currentTask.description ? currentTask.description.substring(0, 50) + '...' : 'None',
+                    dto.description ? dto.description.substring(0, 50) + '...' : 'None',
+                    ActivityAction.UPDATED
+                );
             }
         }
 

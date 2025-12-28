@@ -15,22 +15,22 @@ datasource db {
 // ============= ORGANIZATION & USERS =============
 
 model Organization {
-  id        String   @id @default(cuid())
-  clerkOrgId String  @unique // Clerk Organization ID
-  name      String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  projects  Project[]
-  members   OrganizationMember[]
+  id         String               @id @default(cuid())
+  clerkOrgId String               @unique // Clerk Organization ID
+  name       String
+  createdAt  DateTime             @default(now())
+  updatedAt  DateTime             @updatedAt
+  projects   Project[]
+  members    OrganizationMember[]
 }
 
 model OrganizationMember {
-  id             String   @id @default(cuid())
+  id             String       @id @default(cuid())
   clerkUserId    String
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  role           Role     @default(MEMBER)
-  createdAt      DateTime @default(now())
+  role           Role         @default(MEMBER)
+  createdAt      DateTime     @default(now())
 
   @@unique([clerkUserId, organizationId])
 }
@@ -38,25 +38,29 @@ model OrganizationMember {
 enum Role {
   ADMIN
   MEMBER
-  CLIENT
+  VIEWER
 }
 
 // ============= PROJECTS =============
 
 model Project {
-  id             String   @id @default(cuid())
+  id             String       @id @default(cuid())
   name           String
   description    String?
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  clientOrgId    String?  // Client's Clerk Org ID for read-only access
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-  apps           App[]
-  members        ProjectMember[]
-  activityLogs   ActivityLog[]
-  userVisits     UserVisit[]
-  userStarred    UserStarred[]
+  clientOrgId    String? // Client's Clerk Org ID for read-only access
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  createdBy   String? // Clerk User ID
+  creatorName String?
+
+  apps         App[]
+  members      ProjectMember[]
+  activityLogs ActivityLog[]
+  userVisits   UserVisit[]
+  userStarred  UserStarred[]
 }
 
 model ProjectMember {
@@ -77,11 +81,15 @@ model App {
   id        String   @id @default(cuid())
   name      String
   type      AppType
-  icon      String?  // Custom icon name
+  icon      String? // Custom icon name
   projectId String
   project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  createdBy   String?
+  creatorName String?
+
   modules   Module[]
   bugSheets BugSheet[]
 }
@@ -97,47 +105,91 @@ enum AppType {
 // ============= MODULES/PAGES =============
 
 model Module {
-  id        String   @id @default(cuid())
-  name      String
-  appId     String
-  app       App      @relation(fields: [appId], references: [id], onDelete: Cascade)
-  order     Int      @default(0)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  tasks     Task[]
+  id          String   @id @default(cuid())
+  name        String
+  appId       String
+  app         App      @relation(fields: [appId], references: [id], onDelete: Cascade)
+  order       Int      @default(0)
+  taskCounter Int      @default(0) // Tracks the next task number for generating taskCodes
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  tasks       Task[]
 }
 
 // ============= TASKS =============
 
 model Task {
-  id           String     @id @default(cuid())
-  title        String
-  description  String?
-  type         TaskType   @default(FEATURE)
-  priority     Priority   @default(MEDIUM)
-  status       Status     @default(TODO)
-  
+  id          String   @id @default(cuid())
+  taskCode    String? // Persistent task code like "HOM-1" or "HOM-1.1"
+  title       String
+  description String?
+  type        TaskType @default(FEATURE)
+  priority    Priority @default(MEDIUM)
+  status      Status   @default(TODO)
+
   // Assignment
-  assignedTo   String?
-  remarks      String?
-  
+  assignedTo String?
+  remarks    String?
+
   // Dates
-  startDate    DateTime?
-  endDate      DateTime?
-  
+  startDate DateTime?
+  endDate   DateTime?
+
   // Parent-child relation for subtasks
-  parentId     String?
-  parent       Task?      @relation("Subtasks", fields: [parentId], references: [id], onDelete: Cascade)
-  subtasks     Task[]     @relation("Subtasks")
-  
+  parentId String?
+  parent   Task?   @relation("Subtasks", fields: [parentId], references: [id], onDelete: Cascade)
+  subtasks Task[]  @relation("Subtasks")
+
   // Relations
-  moduleId     String
-  module       Module     @relation(fields: [moduleId], references: [id], onDelete: Cascade)
-  comments     Comment[]
-  
-  order        Int        @default(0)
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
+  moduleId String
+  module   Module    @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  comments Comment[]
+
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Auditing
+  createdBy   String? // Clerk User ID
+  creatorName String?
+
+  reporterId   String? // Clerk User ID (Reporter)
+  reporterName String?
+
+  history TaskHistory[]
+}
+
+model TaskHistory {
+  id        String   @id @default(cuid())
+  taskId    String
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  actorId   String // Who made the change (Clerk User ID)
+  actorName String
+  field     String // e.g., "status", "assignee", "priority"
+  oldValue  String?
+  newValue  String?
+  createdAt DateTime @default(now())
+}
+
+model BugSheet {
+  id          String   @id @default(cuid())
+  module      String
+  description String
+  status      Status   @default(TODO)
+  priority    Priority @default(MEDIUM)
+  assignedTo  String?
+  remarks     String?
+
+  appId String
+  app   App    @relation(fields: [appId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  comments  Comment[]
+
+  // Auditing
+  createdBy   String?
+  creatorName String?
 }
 
 enum TaskType {
@@ -160,68 +212,49 @@ enum Status {
   DONE
 }
 
-// ============= BUGSHEET =============
-
-model BugSheet {
-  id          String   @id @default(cuid())
-  module      String   // Module/page name
-  description String   // Bug description
-  status      Status   @default(TODO)
-  priority    Priority @default(MEDIUM) // Added priority
-  assignedTo  String?
-  remarks     String?
-  
-  appId       String
-  app         App      @relation(fields: [appId], references: [id], onDelete: Cascade)
-  comments    Comment[]
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-}
-
 // ============= COMMENTS =============
 
 model Comment {
-  id         String    @id @default(cuid())
+  id         String @id @default(cuid())
   content    String
-  authorId   String    // Clerk User ID
+  authorId   String // Clerk User ID
   authorName String
-  
+
   // Polymorphic relation - Task OR BugSheet
   taskId     String?
   task       Task?     @relation(fields: [taskId], references: [id], onDelete: Cascade)
   bugSheetId String?
   bugSheet   BugSheet? @relation(fields: [bugSheetId], references: [id], onDelete: Cascade)
-  
-  createdAt  DateTime  @default(now())
+
+  createdAt DateTime @default(now())
 }
 
 // ============= ACTIVITY LOG =============
 
 model ActivityLog {
-  id          String         @id @default(cuid())
-  
+  id String @id @default(cuid())
+
   // What happened
-  action      ActivityAction
-  field       String?        // Field that was changed (e.g., "status", "assignee")
-  oldValue    String?        // Previous value
-  newValue    String?        // New value
-  
+  action   ActivityAction
+  field    String? // Field that was changed (e.g., "status", "assignee")
+  oldValue String? // Previous value
+  newValue String? // New value
+
   // Who did it
-  userId      String         // Clerk User ID
-  userName    String         // User display name
-  
+  userId   String // Clerk User ID
+  userName String // User display name
+
   // What entity was affected
   entityType  EntityType
-  entityId    String         // Task ID or BugSheet ID
-  entityTitle String         // Task/Bug title for display
-  
+  entityId    String // Task ID or BugSheet ID
+  entityTitle String // Task/Bug title for display
+
   // Context
-  projectId   String
-  project     Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  
-  createdAt   DateTime       @default(now())
-  
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
   @@index([projectId, createdAt])
   @@index([entityType, entityId])
   @@index([userId])
@@ -248,19 +281,19 @@ enum EntityType {
 // ============= USER VISITS =============
 
 model UserVisit {
-  id          String   @id @default(cuid())
-  userId      String   // Clerk User ID
-  
+  id     String @id @default(cuid())
+  userId String // Clerk User ID
+
   // What was visited
   projectId   String
-  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  projectName String   // Denormalized for quick display
+  project     Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectName String // Denormalized for quick display
   appId       String?
-  appName     String?  // Denormalized for quick display
-  viewType    String?  // 'list', 'board', 'summary', 'bugsheet'
-  
-  visitedAt   DateTime @default(now())
-  
+  appName     String? // Denormalized for quick display
+  viewType    String? // 'list', 'board', 'summary', 'bugsheet'
+
+  visitedAt DateTime @default(now())
+
   @@index([userId, visitedAt])
   @@index([projectId])
 }
@@ -268,18 +301,47 @@ model UserVisit {
 // ============= USER STARRED =============
 
 model UserStarred {
-  id        String   @id @default(cuid())
-  userId    String   // Clerk User ID
-  
-  projectId String
-  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  id     String @id @default(cuid())
+  userId String // Clerk User ID
+
+  projectId   String
+  project     Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
   projectName String // Denormalized
-  appId     String?
-  appName   String?  // Denormalized
-  
+  appId       String?
+  appName     String? // Denormalized
+
   createdAt DateTime @default(now())
-  
+
   @@unique([userId, projectId, appId])
   @@index([userId])
 }
 
+// ============= NOTIFICATIONS =============
+
+enum NotificationType {
+  MENTION
+  ASSIGNMENT
+  STATUS_CHANGE
+  COMMENT
+}
+
+model Notification {
+  id      String           @id @default(cuid())
+  userId  String // Recipient Clerk User ID
+  type    NotificationType
+  title   String
+  message String
+  read    Boolean          @default(false)
+
+  // Context
+  projectId String?
+  taskId    String?
+  commentId String?
+  actorId   String // Who triggered the notification
+  actorName String
+
+  createdAt DateTime @default(now())
+
+  @@index([userId, read])
+  @@index([userId, createdAt])
+}

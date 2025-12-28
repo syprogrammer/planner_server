@@ -24,7 +24,7 @@ export class ProjectsService {
         return org;
     }
 
-    async create(clerkOrgId: string, dto: CreateProjectDto) {
+    async create(clerkOrgId: string, userId: string, userName: string, dto: CreateProjectDto) {
         // Ensure organization exists
         const org = await this.ensureOrganization(clerkOrgId);
 
@@ -34,6 +34,13 @@ export class ProjectsService {
                 description: dto.description,
                 organizationId: org.id,
                 clientOrgId: dto.clientOrgId,
+                members: {
+                    create: {
+                        clerkUserId: userId,
+                        name: userName || 'Project Owner',
+                        role: 'ADMIN',
+                    }
+                }
             },
             include: {
                 apps: true,
@@ -98,6 +105,7 @@ export class ProjectsService {
                     },
                 },
                 members: true,
+                organization: true,
             },
         });
     }
