@@ -4,6 +4,7 @@
 generator client {
   provider        = "prisma-client-js"
   moduleFormat    = "cjs" // Required for NestJS (CommonJS)
+  binaryTargets   = ["native", "debian-openssl-3.0.x"]
   previewFeatures = ["driverAdapters"]
 }
 
