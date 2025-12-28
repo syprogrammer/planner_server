@@ -1,7 +1,10 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
-import { ProjectMembersService, AddMemberDto, UpdateMemberRoleDto } from './project-members.service';
+import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards } from '@nestjs/common';
+import { ProjectMembersService } from './project-members.service';
+import { AddMemberDto, UpdateMemberRoleDto } from './dto/project-member.dto';
+import { ProjectMemberGuard } from '../common/guards/project-member.guard';
 
 @Controller('projects/:projectId/members')
+@UseGuards(ProjectMemberGuard)
 export class ProjectMembersController {
     constructor(private readonly projectMembersService: ProjectMembersService) { }
 

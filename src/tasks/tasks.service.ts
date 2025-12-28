@@ -3,35 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { TaskType, Priority, Status, ActivityAction, EntityType } from '@prisma/client';
 import { ActivityService } from '../activity/activity.service';
 
-export class CreateTaskDto {
-    title: string;
-    description?: string;
-    type?: TaskType;
-    priority?: Priority;
-    moduleId: string;
-    assignedTo?: string;
-    parentId?: string;
-    // Audit fields
-    createdBy?: string;
-    creatorName?: string;
-    reporterId?: string;
-    reporterName?: string;
-}
-
-export class UpdateTaskDto {
-    title?: string;
-    description?: string;
-    type?: TaskType;
-    priority?: Priority;
-    status?: Status;
-    assignedTo?: string;
-    remarks?: string;
-    startDate?: Date;
-    endDate?: Date;
-    parentId?: string;
-    reporterId?: string;
-    reporterName?: string;
-}
+import { CreateTaskDto, UpdateTaskDto } from './dto/task.dto';
 
 // Context for activity logging
 export interface ActivityContext {

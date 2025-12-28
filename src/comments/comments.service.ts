@@ -4,15 +4,7 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { Subject, Observable } from 'rxjs';
 import { filter, map } from 'rxjs/operators';
 
-export class CreateCommentDto {
-    content: string;
-    authorId: string;
-    authorName: string;
-    taskId?: string;
-    bugSheetId?: string;
-    // Optional: project members for @mention resolution
-    projectMembers?: { clerkUserId: string; name: string }[];
-}
+import { CreateCommentDto } from './dto/comment.dto';
 
 export interface CommentEvent {
     type: 'new_comment';

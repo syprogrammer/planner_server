@@ -2,18 +2,7 @@ import { Injectable, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AppType } from '@prisma/client';
 
-export class CreateAppDto {
-    name: string;
-    type: AppType;
-    icon?: string;
-    projectId: string;
-}
-
-export class UpdateAppDto {
-    name?: string;
-    type?: AppType;
-    icon?: string;
-}
+import { CreateAppDto, UpdateAppDto } from './dto/app.dto';
 
 @Injectable()
 export class AppsService {

@@ -7,10 +7,16 @@ import {
     Body,
     Param,
     Query,
+    UseGuards,
 } from '@nestjs/common';
-import { ModulesService, CreateModuleDto, UpdateModuleDto } from './modules.service';
+import { ModulesService } from './modules.service';
+import { CreateModuleDto, UpdateModuleDto } from './dto/module.dto';
+
+import { ProjectMemberGuard } from '../common/guards/project-member.guard';
+import { Resource } from '../common/decorators/resource.decorator';
 
 @Controller('modules')
+@UseGuards(ProjectMemberGuard)
 export class ModulesController {
     constructor(private readonly modulesService: ModulesService) { }
 
@@ -25,11 +31,13 @@ export class ModulesController {
     }
 
     @Get(':id')
+    @Resource('module')
     findOne(@Param('id') id: string) {
         return this.modulesService.findOne(id);
     }
 
     @Put(':id')
+    @Resource('module')
     update(@Param('id') id: string, @Body() dto: UpdateModuleDto) {
         return this.modulesService.update(id, dto);
     }
@@ -40,6 +48,7 @@ export class ModulesController {
     }
 
     @Delete(':id')
+    @Resource('module')
     delete(@Param('id') id: string) {
         return this.modulesService.delete(id);
     }

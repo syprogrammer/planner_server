@@ -9,11 +9,17 @@ import {
     Param,
     Query,
     Headers,
+    UseGuards,
 } from '@nestjs/common';
-import { TasksService, CreateTaskDto, UpdateTaskDto, ActivityContext } from './tasks.service';
+import { TasksService, ActivityContext } from './tasks.service';
+import { CreateTaskDto, UpdateTaskDto } from './dto/task.dto';
+
 import { Status } from '@prisma/client';
+import { ProjectMemberGuard } from '../common/guards/project-member.guard';
+import { Resource } from '../common/decorators/resource.decorator';
 
 @Controller('tasks')
+@UseGuards(ProjectMemberGuard)
 export class TasksController {
     constructor(private readonly tasksService: TasksService) { }
 
@@ -45,16 +51,19 @@ export class TasksController {
     }
 
     @Get(':id')
+    @Resource('task')
     findOne(@Param('id') id: string) {
         return this.tasksService.findOne(id);
     }
 
     @Get(':id/history')
+    @Resource('task')
     findHistory(@Param('id') id: string) {
         return this.tasksService.findHistory(id);
     }
 
     @Put(':id')
+    @Resource('task')
     update(
         @Param('id') id: string,
         @Body() dto: UpdateTaskDto,
@@ -65,6 +74,7 @@ export class TasksController {
     }
 
     @Patch(':id/status')
+    @Resource('task')
     updateStatus(
         @Param('id') id: string,
         @Body() body: { status: Status },
@@ -80,6 +90,7 @@ export class TasksController {
     }
 
     @Delete(':id')
+    @Resource('task')
     delete(
         @Param('id') id: string,
         @Headers('x-user-id') userId?: string,

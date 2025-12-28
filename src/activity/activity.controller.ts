@@ -1,6 +1,8 @@
-import { Controller, Get, Param, Query } from '@nestjs/common';
+import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
 import { ActivityService } from './activity.service';
 import { EntityType } from '@prisma/client';
+import { ProjectMemberGuard } from '../common/guards/project-member.guard';
+import { Resource } from '../common/decorators/resource.decorator';
 
 @Controller()
 export class ActivityController {
@@ -11,6 +13,7 @@ export class ActivityController {
      * GET /projects/:projectId/activity
      */
     @Get('projects/:projectId/activity')
+    @UseGuards(ProjectMemberGuard)
     async getProjectActivity(
         @Param('projectId') projectId: string,
         @Query('limit') limit?: string,
@@ -33,6 +36,8 @@ export class ActivityController {
      * GET /tasks/:taskId/activity
      */
     @Get('tasks/:taskId/activity')
+    @UseGuards(ProjectMemberGuard)
+    @Resource('task')
     async getTaskActivity(
         @Param('taskId') taskId: string,
         @Query('limit') limit?: string,
@@ -54,6 +59,8 @@ export class ActivityController {
      * GET /bug-sheets/:bugSheetId/activity
      */
     @Get('bug-sheets/:bugSheetId/activity')
+    @UseGuards(ProjectMemberGuard)
+    @Resource('bugSheet')
     async getBugSheetActivity(
         @Param('bugSheetId') bugSheetId: string,
         @Query('limit') limit?: string,

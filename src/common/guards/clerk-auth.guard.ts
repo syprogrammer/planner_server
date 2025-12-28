@@ -1,6 +1,6 @@
-import { Injectable, CanActivate, ExecutionContext, UnauthorizedException } from '@nestjs/common';
+import { Injectable, CanActivate, ExecutionContext, UnauthorizedException, Logger } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { createClerkClient } from '@clerk/backend';
+import { verifyToken } from '@clerk/backend';
 import { ConfigService } from '@nestjs/config';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
 
@@ -10,15 +10,15 @@ export interface AuthenticatedUser {
 
 @Injectable()
 export class ClerkAuthGuard implements CanActivate {
-    private clerk;
+    private readonly logger = new Logger(ClerkAuthGuard.name);
+    private readonly secretKey: string;
 
     constructor(
         private configService: ConfigService,
         private reflector: Reflector,
     ) {
-        this.clerk = createClerkClient({
-            secretKey: this.configService.get<string>('CLERK_SECRET_KEY'),
-        });
+        this.secretKey = this.configService.get<string>('CLERK_SECRET_KEY') || '';
+        this.logger.log(`Clerk secret key configured: ${this.secretKey ? 'Yes (length: ' + this.secretKey.length + ')' : 'No'}`);
     }
 
     async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -36,14 +36,19 @@ export class ClerkAuthGuard implements CanActivate {
         const authHeader = request.headers.authorization;
 
         if (!authHeader?.startsWith('Bearer ')) {
+            this.logger.warn('Missing or invalid authorization header');
             throw new UnauthorizedException('Missing or invalid authorization header');
         }
 
         const token = authHeader.split(' ')[1];
+        this.logger.debug(`Token received (first 20 chars): ${token.substring(0, 20)}...`);
 
         try {
-            // Verify the JWT token with Clerk
-            const payload = await this.clerk.verifyToken(token);
+            // Verify the JWT token with Clerk - use the direct verifyToken function
+            const payload = await verifyToken(token, {
+                secretKey: this.secretKey,
+            });
+            this.logger.debug(`Token verified successfully for user: ${payload.sub}`);
 
             // Attach user info to request
             request.user = {
@@ -52,6 +57,7 @@ export class ClerkAuthGuard implements CanActivate {
 
             return true;
         } catch (error) {
+            this.logger.error(`Token verification failed: ${error.message}`);
             throw new UnauthorizedException('Invalid or expired token');
         }
     }

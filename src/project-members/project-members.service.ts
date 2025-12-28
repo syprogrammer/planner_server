@@ -2,16 +2,7 @@ import { Injectable, ConflictException, NotFoundException } from '@nestjs/common
 import { PrismaService } from '../prisma/prisma.service';
 import { Role } from '@prisma/client';
 
-export class AddMemberDto {
-    clerkUserId: string;
-    name: string;
-    role: Role;
-    projectId: string;
-}
-
-export class UpdateMemberRoleDto {
-    role: Role;
-}
+import { AddMemberDto, UpdateMemberRoleDto } from './dto/project-member.dto';
 
 @Injectable()
 export class ProjectMembersService {

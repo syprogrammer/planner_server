@@ -1,14 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
-export class CreateModuleDto {
-    name: string;
-    appId: string;
-}
-
-export class UpdateModuleDto {
-    name?: string;
-}
+import { CreateModuleDto, UpdateModuleDto } from './dto/module.dto';
 
 @Injectable()
 export class ModulesService {

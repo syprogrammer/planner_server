@@ -8,7 +8,9 @@ import {
     Sse,
 } from '@nestjs/common';
 import { Observable } from 'rxjs';
-import { CommentsService, CreateCommentDto } from './comments.service';
+import { CommentsService } from './comments.service';
+import { CreateCommentDto } from './dto/comment.dto';
+
 
 @Controller('comments')
 export class CommentsController {
