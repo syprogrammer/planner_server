@@ -1,5 +1,5 @@
 import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from '@prisma/generated';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { Pool, PoolClient } from 'pg';
 

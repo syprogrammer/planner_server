@@ -2,14 +2,16 @@
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
 generator client {
-  provider     = "prisma-client-js"
-  output       = "../src/generated/prisma"
-  moduleFormat = "cjs" // Required for NestJS (CommonJS)
+  provider        = "prisma-client-js"
+  output          = "../src/generated/prisma"
+  moduleFormat    = "cjs" // Required for NestJS (CommonJS)
+  binaryTargets   = ["native", "debian-openssl-3.0.x"]
+  previewFeatures = ["driverAdapters"]
 }
 
 datasource db {
   provider = "postgresql"
-  // URL is now configured in prisma.config.ts for Prisma 7+
+  url      = env("DATABASE_URL")
 }
 
 // ============= ORGANIZATION & USERS =============
@@ -38,22 +40,29 @@ model OrganizationMember {
 enum Role {
   ADMIN
   MEMBER
-  CLIENT
+  VIEWER
 }
 
 // ============= PROJECTS =============
 
 model Project {
-  id             String          @id @default(cuid())
+  id             String       @id @default(cuid())
   name           String
   description    String?
   organizationId String
-  organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   clientOrgId    String? // Client's Clerk Org ID for read-only access
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
-  apps           App[]
-  members        ProjectMember[]
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  createdBy   String? // Clerk User ID
+  creatorName String?
+
+  apps         App[]
+  members      ProjectMember[]
+  activityLogs ActivityLog[]
+  userVisits   UserVisit[]
+  userStarred  UserStarred[]
 }
 
 model ProjectMember {
@@ -71,13 +80,18 @@ model ProjectMember {
 // ============= APPS =============
 
 model App {
-  id        String     @id @default(cuid())
+  id        String   @id @default(cuid())
   name      String
   type      AppType
+  icon      String? // Custom icon name
   projectId String
-  project   Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  createdBy   String?
+  creatorName String?
+
   modules   Module[]
   bugSheets BugSheet[]
 }
@@ -86,35 +100,34 @@ enum AppType {
   WEBSITE
   MOBILE
   API
+  BUG_TRACKING
+  CUSTOM
 }
 
 // ============= MODULES/PAGES =============
 
 model Module {
-  id        String   @id @default(cuid())
-  name      String
-  appId     String
-  app       App      @relation(fields: [appId], references: [id], onDelete: Cascade)
-  order     Int      @default(0)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  tasks     Task[]
+  id          String   @id @default(cuid())
+  name        String
+  appId       String
+  app         App      @relation(fields: [appId], references: [id], onDelete: Cascade)
+  order       Int      @default(0)
+  taskCounter Int      @default(0) // Tracks the next task number for generating taskCodes
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  tasks       Task[]
 }
 
 // ============= TASKS =============
 
 model Task {
   id          String   @id @default(cuid())
+  taskCode    String? // Persistent task code like "HOM-1" or "HOM-1.1"
   title       String
   description String?
   type        TaskType @default(FEATURE)
   priority    Priority @default(MEDIUM)
-
-  // Status per role (like Excel)
-  designStatus Status @default(NOT_STARTED)
-  devStatus    Status @default(NOT_STARTED)
-  qaStatus     Status @default(NOT_STARTED)
-  apiStatus    Status @default(NOT_STARTED)
+  status      Status   @default(TODO)
 
   // Assignment
   assignedTo String?
@@ -124,6 +137,11 @@ model Task {
   startDate DateTime?
   endDate   DateTime?
 
+  // Parent-child relation for subtasks
+  parentId String?
+  parent   Task?   @relation("Subtasks", fields: [parentId], references: [id], onDelete: Cascade)
+  subtasks Task[]  @relation("Subtasks")
+
   // Relations
   moduleId String
   module   Module    @relation(fields: [moduleId], references: [id], onDelete: Cascade)
@@ -132,6 +150,48 @@ model Task {
   order     Int      @default(0)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  // Auditing
+  createdBy   String? // Clerk User ID
+  creatorName String?
+
+  reporterId   String? // Clerk User ID (Reporter)
+  reporterName String?
+
+  history TaskHistory[]
+}
+
+model TaskHistory {
+  id        String   @id @default(cuid())
+  taskId    String
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  actorId   String // Who made the change (Clerk User ID)
+  actorName String
+  field     String // e.g., "status", "assignee", "priority"
+  oldValue  String?
+  newValue  String?
+  createdAt DateTime @default(now())
+}
+
+model BugSheet {
+  id          String   @id @default(cuid())
+  module      String
+  description String
+  status      Status   @default(TODO)
+  priority    Priority @default(MEDIUM)
+  assignedTo  String?
+  remarks     String?
+
+  appId String
+  app   App    @relation(fields: [appId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  comments  Comment[]
+
+  // Auditing
+  createdBy   String?
+  creatorName String?
 }
 
 enum TaskType {
@@ -148,32 +208,10 @@ enum Priority {
 }
 
 enum Status {
-  NOT_STARTED
-  WIP
+  TODO
+  IN_PROGRESS
+  IN_REVIEW
   DONE
-  PENDING
-  RESOLVED
-  VERIFIED
-  NR // Not Required
-}
-
-// ============= BUGSHEET =============
-
-model BugSheet {
-  id          String  @id @default(cuid())
-  module      String // Module/page name
-  description String // Bug description
-  devStatus   Status  @default(NOT_STARTED)
-  qaStatus    Status  @default(NOT_STARTED)
-  assignedTo  String?
-  remarks     String?
-
-  appId    String
-  app      App       @relation(fields: [appId], references: [id], onDelete: Cascade)
-  comments Comment[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
 }
 
 // ============= COMMENTS =============
@@ -191,4 +229,121 @@ model Comment {
   bugSheet   BugSheet? @relation(fields: [bugSheetId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
+}
+
+// ============= ACTIVITY LOG =============
+
+model ActivityLog {
+  id String @id @default(cuid())
+
+  // What happened
+  action   ActivityAction
+  field    String? // Field that was changed (e.g., "status", "assignee")
+  oldValue String? // Previous value
+  newValue String? // New value
+
+  // Who did it
+  userId   String // Clerk User ID
+  userName String // User display name
+
+  // What entity was affected
+  entityType  EntityType
+  entityId    String // Task ID or BugSheet ID
+  entityTitle String // Task/Bug title for display
+
+  // Context
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([projectId, createdAt])
+  @@index([entityType, entityId])
+  @@index([userId])
+}
+
+enum ActivityAction {
+  CREATED
+  UPDATED
+  DELETED
+  STATUS_CHANGED
+  ASSIGNED
+  UNASSIGNED
+  COMMENTED
+  PRIORITY_CHANGED
+}
+
+enum EntityType {
+  TASK
+  BUGSHEET
+  PROJECT
+  MODULE
+}
+
+// ============= USER VISITS =============
+
+model UserVisit {
+  id     String @id @default(cuid())
+  userId String // Clerk User ID
+
+  // What was visited
+  projectId   String
+  project     Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectName String // Denormalized for quick display
+  appId       String?
+  appName     String? // Denormalized for quick display
+  viewType    String? // 'list', 'board', 'summary', 'bugsheet'
+
+  visitedAt DateTime @default(now())
+
+  @@index([userId, visitedAt])
+  @@index([projectId])
+}
+
+// ============= USER STARRED =============
+
+model UserStarred {
+  id     String @id @default(cuid())
+  userId String // Clerk User ID
+
+  projectId   String
+  project     Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectName String // Denormalized
+  appId       String?
+  appName     String? // Denormalized
+
+  createdAt DateTime @default(now())
+
+  @@unique([userId, projectId, appId])
+  @@index([userId])
+}
+
+// ============= NOTIFICATIONS =============
+
+enum NotificationType {
+  MENTION
+  ASSIGNMENT
+  STATUS_CHANGE
+  COMMENT
+}
+
+model Notification {
+  id      String           @id @default(cuid())
+  userId  String // Recipient Clerk User ID
+  type    NotificationType
+  title   String
+  message String
+  read    Boolean          @default(false)
+
+  // Context
+  projectId String?
+  taskId    String?
+  commentId String?
+  actorId   String // Who triggered the notification
+  actorName String
+
+  createdAt DateTime @default(now())
+
+  @@index([userId, read])
+  @@index([userId, createdAt])
 }

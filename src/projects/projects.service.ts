@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateProjectDto, UpdateProjectDto } from './dto/project.dto';
 
@@ -6,27 +6,15 @@ import { CreateProjectDto, UpdateProjectDto } from './dto/project.dto';
 export class ProjectsService {
     constructor(private prisma: PrismaService) { }
 
-    // Ensure organization exists (create if not)
-    private async ensureOrganization(clerkOrgId: string) {
-        const org = await this.prisma.organization.findUnique({
-            where: { clerkOrgId },
-        });
+    /**
+     * Create a new project and add the creator as ADMIN member
+     */
+    async create(userId: string, dto: CreateProjectDto) {
+        // Get or create organization for this user
+        const org = await this.ensureOrganization(userId);
 
-        if (!org) {
-            return this.prisma.organization.create({
-                data: {
-                    clerkOrgId,
-                    name: 'Default Organization', // Will be updated from Clerk
-                },
-            });
-        }
-
-        return org;
-    }
-
-    async create(clerkOrgId: string, userId: string, userName: string, dto: CreateProjectDto) {
-        // Ensure organization exists
-        const org = await this.ensureOrganization(clerkOrgId);
+        // Get user info (we'll use userId as name if not available)
+        const userName = 'Project Owner'; // Frontend should send this
 
         return this.prisma.project.create({
             data: {
@@ -34,10 +22,12 @@ export class ProjectsService {
                 description: dto.description,
                 organizationId: org.id,
                 clientOrgId: dto.clientOrgId,
+                createdBy: userId,
+                creatorName: userName,
                 members: {
                     create: {
                         clerkUserId: userId,
-                        name: userName || 'Project Owner',
+                        name: userName,
                         role: 'ADMIN',
                     }
                 }
@@ -49,18 +39,18 @@ export class ProjectsService {
         });
     }
 
-    async findAll(clerkOrgId: string) {
-        // First try to find organization
-        const org = await this.prisma.organization.findUnique({
-            where: { clerkOrgId },
-        });
-
-        if (!org) {
-            return []; // No org = no projects
-        }
-
+    /**
+     * Find all projects where user is a member
+     */
+    async findAllByUser(userId: string) {
         return this.prisma.project.findMany({
-            where: { organizationId: org.id },
+            where: {
+                members: {
+                    some: {
+                        clerkUserId: userId,
+                    },
+                },
+            },
             include: {
                 apps: {
                     include: {
@@ -75,7 +65,7 @@ export class ProjectsService {
     }
 
     async findOne(id: string) {
-        return this.prisma.project.findUnique({
+        const project = await this.prisma.project.findUnique({
             where: { id },
             include: {
                 apps: {
@@ -108,6 +98,12 @@ export class ProjectsService {
                 organization: true,
             },
         });
+
+        if (!project) {
+            throw new NotFoundException('Project not found');
+        }
+
+        return project;
     }
 
     async update(id: string, dto: UpdateProjectDto) {
@@ -127,7 +123,6 @@ export class ProjectsService {
         });
     }
 
-    // Get project stats for client portal
     async getProjectStats(id: string) {
         const project = await this.prisma.project.findUnique({
             where: { id },
@@ -145,7 +140,9 @@ export class ProjectsService {
             },
         });
 
-        if (!project) return null;
+        if (!project) {
+            throw new NotFoundException('Project not found');
+        }
 
         const stats = project.apps.map((app) => {
             const tasks = app.modules.flatMap((m) => m.tasks);
@@ -176,5 +173,41 @@ export class ProjectsService {
             overallProgress,
             apps: stats,
         };
+    }
+
+    /**
+     * Check if user is a member of the project
+     */
+    async isUserMember(projectId: string, userId: string): Promise<boolean> {
+        const member = await this.prisma.projectMember.findUnique({
+            where: {
+                projectId_clerkUserId: {
+                    projectId,
+                    clerkUserId: userId,
+                },
+            },
+        });
+        return !!member;
+    }
+
+    /**
+     * Ensure organization exists for user
+     */
+    private async ensureOrganization(clerkUserId: string) {
+        // Use user ID as org ID for personal projects
+        const org = await this.prisma.organization.findUnique({
+            where: { clerkOrgId: clerkUserId },
+        });
+
+        if (!org) {
+            return this.prisma.organization.create({
+                data: {
+                    clerkOrgId: clerkUserId,
+                    name: 'Personal Organization',
+                },
+            });
+        }
+
+        return org;
     }
 }

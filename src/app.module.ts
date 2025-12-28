@@ -14,12 +14,22 @@ import { UserStarredModule } from './user-starred/user-starred.module';
 import { ProjectMembersModule } from './project-members/project-members.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { ConfigModule } from '@nestjs/config';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { APP_GUARD } from '@nestjs/core';
+import { ClerkAuthGuard } from './common/guards';
+
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true, // Makes ConfigModule available throughout the app
       envFilePath: '.env',
     }),
+    ThrottlerModule.forRoot([
+      {
+        ttl: 60000, // Time to live in milliseconds (1 minute)
+        limit: 100, // Number of requests per TTL
+      },
+    ]),
     PrismaModule,
     ProjectsModule,
     AppsModule,
@@ -34,8 +44,18 @@ import { ConfigModule } from '@nestjs/config';
     NotificationsModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    // Global rate limiting
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
+    // Global authentication - all routes require auth unless marked with @Public()
+    {
+      provide: APP_GUARD,
+      useClass: ClerkAuthGuard,
+    },
+  ],
 })
 export class AppModule { }
-
-
