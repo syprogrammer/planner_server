@@ -285,11 +285,32 @@ export class TasksService {
 
     // Update task status (for Kanban drag-drop)
     async updateStatus(id: string, status: Status, context?: ActivityContext) {
-        // Get current task for comparison
-        const currentTask = await this.findOne(id);
+        // Get minimal current task data with project ID for activity logging
+        const currentTask = await this.prisma.task.findUnique({
+            where: { id },
+            select: {
+                id: true,
+                status: true,
+                title: true,
+                moduleId: true,
+                module: {
+                    select: {
+                        app: {
+                            select: {
+                                projectId: true,
+                            },
+                        },
+                    },
+                },
+            },
+        });
+
+        if (!currentTask) {
+            throw new BadRequestException('Task not found');
+        }
 
         // Check if marking as DONE with incomplete subtasks
-        if (status === 'DONE' && currentTask?.status !== 'DONE') {
+        if (status === 'DONE' && currentTask.status !== 'DONE') {
             const incompleteSubtasks = await this.prisma.task.count({
                 where: {
                     parentId: id,
@@ -302,26 +323,22 @@ export class TasksService {
             }
         }
 
+        // Update task status - return minimal data for fast response
         const task = await this.prisma.task.update({
             where: { id },
             data: { status },
-            include: {
-                comments: true,
-                module: {
-                    include: {
-                        app: {
-                            include: {
-                                project: true,
-                            },
-                        },
-                    },
-                },
+            select: {
+                id: true,
+                status: true,
+                moduleId: true,
+                title: true,
             },
         });
 
-        // Log activity if context provided
-        if (context && task.module?.app?.project && currentTask) {
-            await this.activityService.logActivity({
+        // Log activity asynchronously (fire and forget) - don't block the response
+        if (context && currentTask.status !== status && currentTask.module?.app?.projectId) {
+            // Fire and forget - don't await to avoid blocking the response
+            this.activityService.logActivity({
                 action: ActivityAction.STATUS_CHANGED,
                 field: 'status',
                 oldValue: currentTask.status,
@@ -331,7 +348,10 @@ export class TasksService {
                 entityType: EntityType.TASK,
                 entityId: task.id,
                 entityTitle: task.title,
-                projectId: task.module.app.project.id,
+                projectId: currentTask.module.app.projectId,
+            }).catch((err) => {
+                // Silently log errors to avoid breaking the response
+                console.error('Failed to log activity:', err);
             });
         }
 

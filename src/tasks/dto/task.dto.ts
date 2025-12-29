@@ -1,4 +1,4 @@
-import { IsString, IsEnum, IsOptional, IsNotEmpty, IsDateString } from 'class-validator';
+import { IsString, IsEnum, IsOptional, IsNotEmpty, IsDateString, ValidateIf } from 'class-validator';
 import { TaskType, Priority, Status } from '@prisma/client';
 
 export class CreateTaskDto {
@@ -77,13 +77,15 @@ export class UpdateTaskDto {
     @IsOptional()
     remarks?: string;
 
-    @IsDateString()
+    @ValidateIf((o) => o.startDate !== null && o.startDate !== undefined)
+    @IsDateString({}, { message: 'startDate must be a valid ISO 8601 date string' })
     @IsOptional()
-    startDate?: Date;
+    startDate?: string | null;
 
-    @IsDateString()
+    @ValidateIf((o) => o.endDate !== null && o.endDate !== undefined)
+    @IsDateString({}, { message: 'endDate must be a valid ISO 8601 date string' })
     @IsOptional()
-    endDate?: Date;
+    endDate?: string | null;
 
     @IsString()
     @IsOptional()
