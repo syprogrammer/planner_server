@@ -6,8 +6,21 @@ import { AppModule } from './app.module';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  // Security headers
-  app.use(helmet());
+  // Enable CORS for frontend - Move BEFORE helmet or other middleware
+  const allowedOrigins = [
+    'http://localhost:3000',
+    'http://localhost:3001',
+    'http://localhost:3002',
+    'https://planner.syprogrammer.space',
+    ...(process.env.CORS_ORIGINS?.split(',') || []),
+  ];
+
+  app.enableCors({
+    origin: allowedOrigins,
+    methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'x-user-id', 'x-user-name'],
+    credentials: true,
+  });
 
   // Global validation pipe
   app.useGlobalPipes(new ValidationPipe({
@@ -19,20 +32,8 @@ async function bootstrap() {
     },
   }));
 
-  // Enable CORS for frontend
-  const allowedOrigins = [
-    'http://localhost:3000',
-    'http://localhost:3001',
-    'http://localhost:3002',
-    'https://planner.syprogrammer.space',
-    ...(process.env.CORS_ORIGINS?.split(',') || []),
-  ];
-
-  app.enableCors({
-    origin: allowedOrigins,
-    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
-    credentials: true,
-  });
+  // Security headers
+  app.use(helmet());
 
   // Global prefix for all API routes
   app.setGlobalPrefix('api');
