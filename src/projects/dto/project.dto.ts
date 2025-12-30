@@ -15,6 +15,10 @@ export class CreateProjectDto {
     @IsOptional()
     @IsString()
     clientOrgId?: string;
+
+    @IsString()
+    @IsNotEmpty({ message: 'Organization ID is required' })
+    organizationId: string;
 }
 
 export class UpdateProjectDto {

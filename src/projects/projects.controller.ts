@@ -23,6 +23,7 @@ export class ProjectsController {
         @CurrentUser() user: AuthenticatedUser,
         @Body() dto: CreateProjectDto,
     ) {
+        // We now enforce that dto.organizationId is present and valid in the service
         return this.projectsService.create(user.userId, dto);
     }
 

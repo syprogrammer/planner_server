@@ -13,6 +13,7 @@ import { UserVisitsModule } from './user-visits/user-visits.module';
 import { UserStarredModule } from './user-starred/user-starred.module';
 import { ProjectMembersModule } from './project-members/project-members.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { UsersModule } from './users/users.module';
 import { ConfigModule } from '@nestjs/config';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
@@ -41,7 +42,9 @@ import { ClerkAuthGuard } from './common/guards';
     UserVisitsModule,
     UserStarredModule,
     ProjectMembersModule,
+    ProjectMembersModule,
     NotificationsModule,
+    UsersModule,
   ],
   controllers: [AppController],
   providers: [
