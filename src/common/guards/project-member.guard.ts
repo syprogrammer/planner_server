@@ -112,7 +112,8 @@ export class ProjectMemberGuard implements CanActivate {
                 // But the lookups returns null if not found.
                 throw new NotFoundException('Resource or Project not found');
             }
-            return true;
+            this.logger.warn(`Could not resolve project context for ${request.method} ${request.url} - Denying access`);
+            throw new ForbiddenException('Project context required for access');
         }
 
         // Check if user is a member of this project
