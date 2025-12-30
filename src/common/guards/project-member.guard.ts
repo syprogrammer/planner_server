@@ -15,6 +15,12 @@ export class ProjectMemberGuard implements CanActivate {
 
     async canActivate(context: ExecutionContext): Promise<boolean> {
         const request = context.switchToHttp().getRequest();
+
+        // Allow CORS preflight requests
+        if (request.method === 'OPTIONS') {
+            return true;
+        }
+
         const user = request.user as AuthenticatedUser;
 
         if (!user?.userId) {
