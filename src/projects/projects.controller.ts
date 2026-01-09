@@ -12,7 +12,7 @@ import { ProjectsService } from './projects.service';
 import { CreateProjectDto, UpdateProjectDto } from './dto/project.dto';
 import { ProjectMemberGuard } from '../common/guards';
 import { CurrentUser } from '../common/decorators';
-import type { AuthenticatedUser } from '../common/guards/clerk-auth.guard';
+import type { AuthenticatedUser } from '../auth/auth.service';
 
 @Controller('projects')
 export class ProjectsController {
@@ -23,8 +23,7 @@ export class ProjectsController {
         @CurrentUser() user: AuthenticatedUser,
         @Body() dto: CreateProjectDto,
     ) {
-        // We now enforce that dto.organizationId is present and valid in the service
-        return this.projectsService.create(user.userId, dto);
+        return this.projectsService.create(user.userId, user.userName || 'User', dto);
     }
 
     @Get()

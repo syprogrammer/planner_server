@@ -58,13 +58,13 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
             try {
                 this.logger.log(`Attempting database connection (attempt ${attempt}/${maxRetries})...`);
                 await this.$connect();
-                this.logger.log('✅ Database connected successfully');
+                this.logger.log(' Database connected successfully');
                 return;
             } catch (error) {
-                this.logger.error(`❌ Connection attempt ${attempt} failed: ${error.message}`);
+                this.logger.error(` Connection attempt ${attempt} failed: ${error.message}`);
 
                 if (attempt === maxRetries) {
-                    this.logger.error('❌ All database connection attempts failed. Database is DOWN.');
+                    this.logger.error(' All database connection attempts failed. Database is DOWN.');
                     // Throw a NestJS-specific exception for better HTTP response
                     const { ServiceUnavailableException } = await import('@nestjs/common');
                     throw new ServiceUnavailableException('Database is currently unavailable. Please try again later.');

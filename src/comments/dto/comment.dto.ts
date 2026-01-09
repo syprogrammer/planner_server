@@ -4,7 +4,7 @@ import { Type } from 'class-transformer';
 class ProjectMemberDto {
     @IsString()
     @IsNotEmpty()
-    clerkUserId: string;
+    userId: string;
 
     @IsString()
     @IsNotEmpty()

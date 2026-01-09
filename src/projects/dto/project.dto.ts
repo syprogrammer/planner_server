@@ -11,14 +11,6 @@ export class CreateProjectDto {
     @IsString()
     @MaxLength(500, { message: 'Description must be at most 500 characters' })
     description?: string;
-
-    @IsOptional()
-    @IsString()
-    clientOrgId?: string;
-
-    @IsString()
-    @IsNotEmpty({ message: 'Organization ID is required' })
-    organizationId: string;
 }
 
 export class UpdateProjectDto {
@@ -32,8 +24,4 @@ export class UpdateProjectDto {
     @IsString()
     @MaxLength(500, { message: 'Description must be at most 500 characters' })
     description?: string;
-
-    @IsOptional()
-    @IsString()
-    clientOrgId?: string;
 }

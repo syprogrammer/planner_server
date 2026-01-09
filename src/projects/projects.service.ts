@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { Role } from '@prisma/client';
 import { CreateProjectDto, UpdateProjectDto } from './dto/project.dto';
 
 @Injectable()
@@ -7,45 +8,19 @@ export class ProjectsService {
     constructor(private prisma: PrismaService) { }
 
     /**
-     * Create a new project and add the creator as ADMIN member
+     * Create a new project with the creator as owner and ADMIN member
      */
-    async create(userId: string, dto: CreateProjectDto) {
-        // Enforce that the organization must exist
-        const org = await this.prisma.organization.findUnique({
-            where: { clerkOrgId: dto.organizationId },
-        });
-
-        if (!org) {
-            // If the org doesn't exist in our DB, we check if it's a valid Clerk Org (implying we need to sync it)
-            // But for SaaS best practice, we assume orgs are synced or created via proper flows.
-            // If strictly disabling "Personal Orgs", we fail here if it's not a real org.
-            // For now, consistent with "Backend Only" flow, we fail if not found or blindly link it if we trust the FE.
-
-            // However, to permit "First Time Sync" (if a user creates an org in Clerk and then creates a project),
-            // we might want to create the Org record if it's new.
-            // BUT, the goal is "Customers should NOT create orgs". 
-            // So we assume the Admin created it and it exists in our DB.
-            throw new NotFoundException('Organization not found. Please contact support if this is an error.');
-        }
-
-        // Check if user is member of this org (implicitly or explicitly)
-        // This is a naive check; ideally checking Clerk API or our local sync of OrgMembers
-
-        const userName = 'Project Owner'; // TODO: fetch from clerk if needed
-
+    async create(userId: string, userName: string, dto: CreateProjectDto) {
         return this.prisma.project.create({
             data: {
                 name: dto.name,
                 description: dto.description,
-                organizationId: org.id,
-                clientOrgId: dto.clientOrgId,
-                createdBy: userId,
-                creatorName: userName,
+                ownerId: userId,
                 members: {
                     create: {
-                        clerkUserId: userId,
-                        name: userName,
-                        role: 'ADMIN',
+                        userId: userId,
+                        name: userName || 'Project Owner',
+                        role: Role.ADMIN,
                     }
                 }
             },
@@ -64,7 +39,7 @@ export class ProjectsService {
             where: {
                 members: {
                     some: {
-                        clerkUserId: userId,
+                        userId: userId,
                     },
                 },
             },
@@ -75,6 +50,13 @@ export class ProjectsService {
                     },
                 },
                 members: true,
+                owner: {
+                    select: {
+                        id: true,
+                        name: true,
+                        email: true,
+                    },
+                },
                 _count: { select: { apps: true } },
             },
             orderBy: { updatedAt: 'desc' },
@@ -112,7 +94,13 @@ export class ProjectsService {
                     },
                 },
                 members: true,
-                organization: true,
+                owner: {
+                    select: {
+                        id: true,
+                        name: true,
+                        email: true,
+                    },
+                },
             },
         });
 
@@ -129,7 +117,6 @@ export class ProjectsService {
             data: {
                 name: dto.name,
                 description: dto.description,
-                clientOrgId: dto.clientOrgId,
             },
         });
     }
@@ -198,17 +185,12 @@ export class ProjectsService {
     async isUserMember(projectId: string, userId: string): Promise<boolean> {
         const member = await this.prisma.projectMember.findUnique({
             where: {
-                projectId_clerkUserId: {
+                projectId_userId: {
                     projectId,
-                    clerkUserId: userId,
+                    userId: userId,
                 },
             },
         });
         return !!member;
     }
-
-    /**
-     * Ensure organization exists for user
-     */
-
 }

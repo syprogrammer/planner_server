@@ -4,7 +4,7 @@ import { Role } from '@prisma/client';
 export class AddMemberDto {
     @IsString()
     @IsNotEmpty()
-    clerkUserId: string;
+    userId: string;
 
     @IsString()
     @IsNotEmpty()

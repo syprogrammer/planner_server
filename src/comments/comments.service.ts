@@ -31,12 +31,12 @@ export class CommentsService {
     ) { }
 
     // Parse @mentions from comment content
-    private parseMentions(content: string, projectMembers?: { clerkUserId: string; name: string }[]) {
+    private parseMentions(content: string, projectMembers?: { userId: string; name: string }[]) {
         if (!projectMembers) return [];
 
         // Match @mentions (e.g., @JohnDoe or @john)
         const mentionRegex = /@(\w+)/g;
-        const mentions: { clerkUserId: string; name: string }[] = [];
+        const mentions: { userId: string; name: string }[] = [];
         let match;
 
         while ((match = mentionRegex.exec(content)) !== null) {
@@ -45,7 +45,7 @@ export class CommentsService {
                 m => m.name.toLowerCase().includes(mentionedName) ||
                     m.name.toLowerCase().replace(/\s/g, '').includes(mentionedName)
             );
-            if (member && !mentions.some(m => m.clerkUserId === member.clerkUserId)) {
+            if (member && !mentions.some(m => m.userId === member.userId)) {
                 mentions.push(member);
             }
         }
@@ -111,9 +111,9 @@ export class CommentsService {
 
         for (const mentioned of mentions) {
             // Don't notify the author if they mention themselves
-            if (mentioned.clerkUserId !== dto.authorId) {
+            if (mentioned.userId !== dto.authorId) {
                 await this.notificationsService.createMentionNotification(
-                    mentioned.clerkUserId,
+                    mentioned.userId,
                     mentioned.name,
                     comment.taskId || comment.bugSheetId || '',
                     taskTitle,

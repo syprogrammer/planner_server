@@ -1,6 +1,5 @@
 import { Injectable, ConflictException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { Role } from '@prisma/client';
 
 import { AddMemberDto, UpdateMemberRoleDto } from './dto/project-member.dto';
 
@@ -12,9 +11,9 @@ export class ProjectMembersService {
         // Check if already a member
         const existing = await this.prisma.projectMember.findUnique({
             where: {
-                projectId_clerkUserId: {
+                projectId_userId: {
                     projectId,
-                    clerkUserId: dto.clerkUserId,
+                    userId: dto.userId,
                 },
             },
         });
@@ -26,7 +25,7 @@ export class ProjectMembersService {
         return this.prisma.projectMember.create({
             data: {
                 projectId,
-                clerkUserId: dto.clerkUserId,
+                userId: dto.userId,
                 name: dto.name,
                 role: dto.role,
             },
@@ -40,13 +39,13 @@ export class ProjectMembersService {
         });
     }
 
-    async updateRole(projectId: string, clerkUserId: string, dto: UpdateMemberRoleDto) {
+    async updateRole(projectId: string, userId: string, dto: UpdateMemberRoleDto) {
         // Ensure member exists
         const member = await this.prisma.projectMember.findUnique({
             where: {
-                projectId_clerkUserId: {
+                projectId_userId: {
                     projectId,
-                    clerkUserId,
+                    userId,
                 },
             },
         });
@@ -57,22 +56,22 @@ export class ProjectMembersService {
 
         return this.prisma.projectMember.update({
             where: {
-                projectId_clerkUserId: {
+                projectId_userId: {
                     projectId,
-                    clerkUserId,
+                    userId,
                 },
             },
             data: { role: dto.role },
         });
     }
 
-    async removeMember(projectId: string, clerkUserId: string) {
+    async removeMember(projectId: string, userId: string) {
         // Ensure member exists
         const member = await this.prisma.projectMember.findUnique({
             where: {
-                projectId_clerkUserId: {
+                projectId_userId: {
                     projectId,
-                    clerkUserId,
+                    userId,
                 },
             },
         });
@@ -83,9 +82,9 @@ export class ProjectMembersService {
 
         return this.prisma.projectMember.delete({
             where: {
-                projectId_clerkUserId: {
+                projectId_userId: {
                     projectId,
-                    clerkUserId,
+                    userId,
                 },
             },
         });

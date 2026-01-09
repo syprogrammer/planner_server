@@ -1,7 +1,7 @@
 import { Injectable, CanActivate, ExecutionContext, ForbiddenException, NotFoundException, Logger } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { PrismaService } from '../../prisma/prisma.service';
-import { AuthenticatedUser } from './clerk-auth.guard';
+import { AuthenticatedUser } from '../../auth/auth.service';
 import { RESOURCE_KEY } from '../decorators/resource.decorator';
 
 @Injectable()
@@ -119,9 +119,9 @@ export class ProjectMemberGuard implements CanActivate {
         // Check if user is a member of this project
         const member = await this.prisma.projectMember.findUnique({
             where: {
-                projectId_clerkUserId: {
+                projectId_userId: {
                     projectId,
-                    clerkUserId: user.userId,
+                    userId: user.userId,
                 },
             },
         });

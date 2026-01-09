@@ -17,7 +17,7 @@ import { UsersModule } from './users/users.module';
 import { ConfigModule } from '@nestjs/config';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
-import { ClerkAuthGuard } from './common/guards';
+import { AuthModule, JwtAuthGuard } from './auth';
 
 @Module({
   imports: [
@@ -42,9 +42,9 @@ import { ClerkAuthGuard } from './common/guards';
     UserVisitsModule,
     UserStarredModule,
     ProjectMembersModule,
-    ProjectMembersModule,
     NotificationsModule,
     UsersModule,
+    AuthModule,
   ],
   controllers: [AppController],
   providers: [
@@ -57,7 +57,7 @@ import { ClerkAuthGuard } from './common/guards';
     // Global authentication - all routes require auth unless marked with @Public()
     {
       provide: APP_GUARD,
-      useClass: ClerkAuthGuard,
+      useClass: JwtAuthGuard,
     },
   ],
 })
