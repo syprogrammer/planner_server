@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
+import { Injectable, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { TaskType, Priority, Status, ActivityAction, EntityType } from '@prisma/client';
 import { ActivityService } from '../activity/activity.service';
@@ -253,6 +253,10 @@ export class TasksService {
 
             // Check for reporter change
             if (dto.reporterId !== undefined && currentTask.reporterId !== dto.reporterId) {
+                // Only creator can change reporter
+                if (currentTask.createdBy && currentTask.createdBy !== context.userId) {
+                    throw new ForbiddenException('Only the task creator can change the reporter.');
+                }
                 await logChange('reporter', currentTask.reporterName, dto.reporterName, ActivityAction.UPDATED);
             }
 
@@ -381,6 +385,15 @@ export class TasksService {
     async delete(id: string, context?: ActivityContext) {
         // Get task info before deletion for logging
         const task = await this.findOne(id);
+
+        if (!task) {
+            throw new BadRequestException('Task not found');
+        }
+
+        // Only creator can delete task
+        if (context && task.createdBy && task.createdBy !== context.userId) {
+            throw new ForbiddenException('Only the task creator can delete the task.');
+        }
 
         const deletedTask = await this.prisma.task.delete({
             where: { id },
