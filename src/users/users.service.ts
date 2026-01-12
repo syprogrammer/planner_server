@@ -18,7 +18,7 @@ export class UsersService {
                         { name: { contains: query, mode: 'insensitive' } },
                         { email: { contains: query, mode: 'insensitive' } },
                     ],
-                    emailVerified: true, // Only return verified users
+                    // emailVerified: true, // Allow searching all users for now
                 },
                 take: 10,
                 select: {

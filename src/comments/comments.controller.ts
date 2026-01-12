@@ -26,11 +26,6 @@ export class CommentsController {
         return this.commentsService.findByTask(taskId);
     }
 
-    @Get('bug-sheet/:bugSheetId')
-    findByBugSheet(@Param('bugSheetId') bugSheetId: string) {
-        return this.commentsService.findByBugSheet(bugSheetId);
-    }
-
     @Delete(':id')
     delete(@Param('id') id: string) {
         return this.commentsService.delete(id);

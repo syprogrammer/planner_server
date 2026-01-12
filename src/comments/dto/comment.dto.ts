@@ -30,7 +30,7 @@ export class CreateCommentDto {
 
     @IsString()
     @IsOptional()
-    bugSheetId?: string;
+    parentId?: string;
 
     // Optional: project members for @mention resolution
     @IsArray()

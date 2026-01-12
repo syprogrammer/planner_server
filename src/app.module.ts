@@ -5,7 +5,6 @@ import { PrismaModule } from './prisma/prisma.module';
 import { ProjectsModule } from './projects/projects.module';
 import { AppsModule } from './apps/apps.module';
 import { TasksModule } from './tasks/tasks.module';
-import { BugSheetsModule } from './bug-sheets/bug-sheets.module';
 import { CommentsModule } from './comments/comments.module';
 import { ModulesModule } from './modules/modules.module';
 import { ActivityModule } from './activity/activity.module';
@@ -14,6 +13,7 @@ import { UserStarredModule } from './user-starred/user-starred.module';
 import { ProjectMembersModule } from './project-members/project-members.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { UsersModule } from './users/users.module';
+import { LabelsModule } from './labels/labels.module';
 import { ConfigModule } from '@nestjs/config';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
@@ -36,7 +36,6 @@ import { AuthModule, JwtAuthGuard } from './auth';
     AppsModule,
     ModulesModule,
     TasksModule,
-    BugSheetsModule,
     CommentsModule,
     ActivityModule,
     UserVisitsModule,
@@ -44,6 +43,7 @@ import { AuthModule, JwtAuthGuard } from './auth';
     ProjectMembersModule,
     NotificationsModule,
     UsersModule,
+    LabelsModule,
     AuthModule,
   ],
   controllers: [AppController],

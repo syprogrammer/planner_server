@@ -14,7 +14,6 @@ export interface CommentEvent {
         authorId: string;
         authorName: string;
         taskId?: string;
-        bugSheetId?: string;
         assignedTo?: string;
         projectId?: string;
         createdAt: Date;
@@ -60,7 +59,7 @@ export class CommentsService {
                 authorId: dto.authorId,
                 authorName: dto.authorName,
                 taskId: dto.taskId,
-                bugSheetId: dto.bugSheetId,
+                parentId: dto.parentId,
             },
             include: {
                 task: {
@@ -74,21 +73,12 @@ export class CommentsService {
                         },
                     },
                 },
-                bugSheet: {
-                    include: {
-                        app: {
-                            include: { project: true },
-                        },
-                    },
-                },
             },
         });
 
         // Emit SSE event for real-time notifications
-        const projectId =
-            comment.task?.module?.app?.project?.id ||
-            comment.bugSheet?.app?.project?.id;
-        const assignedTo = comment.task?.assignedTo || comment.bugSheet?.assignedTo;
+        const projectId = comment.task?.module?.app?.project?.id;
+        const assignedTo = comment.task?.assignedTo;
 
         this.commentSubject.next({
             type: 'new_comment',
@@ -98,7 +88,6 @@ export class CommentsService {
                 authorId: comment.authorId,
                 authorName: comment.authorName,
                 taskId: comment.taskId || undefined,
-                bugSheetId: comment.bugSheetId || undefined,
                 assignedTo: assignedTo || undefined,
                 projectId,
                 createdAt: comment.createdAt,
@@ -115,7 +104,7 @@ export class CommentsService {
                 await this.notificationsService.createMentionNotification(
                     mentioned.userId,
                     mentioned.name,
-                    comment.taskId || comment.bugSheetId || '',
+                    comment.taskId || '',
                     taskTitle,
                     comment.id,
                     dto.authorId,
@@ -131,13 +120,6 @@ export class CommentsService {
     async findByTask(taskId: string) {
         return this.prisma.comment.findMany({
             where: { taskId },
-            orderBy: { createdAt: 'asc' },
-        });
-    }
-
-    async findByBugSheet(bugSheetId: string) {
-        return this.prisma.comment.findMany({
-            where: { bugSheetId },
             orderBy: { createdAt: 'asc' },
         });
     }

@@ -46,7 +46,7 @@ export class ProjectsService {
             include: {
                 apps: {
                     include: {
-                        _count: { select: { modules: true, bugSheets: true } },
+                        _count: { select: { modules: true } },
                     },
                 },
                 members: true,
@@ -77,11 +77,15 @@ export class ProjectsService {
                                         subtasks: {
                                             include: {
                                                 comments: true,
+                                                labels: { include: { label: true } },
                                             },
                                             orderBy: { order: 'asc' },
                                         },
                                         comments: {
                                             orderBy: { createdAt: 'asc' },
+                                        },
+                                        labels: {
+                                            include: { label: true }
                                         },
                                     },
                                     orderBy: { order: 'asc' },
@@ -90,7 +94,6 @@ export class ProjectsService {
                             },
                             orderBy: { order: 'asc' },
                         },
-                        bugSheets: true,
                     },
                 },
                 members: true,
@@ -138,7 +141,6 @@ export class ProjectsService {
                                 tasks: true,
                             },
                         },
-                        bugSheets: true,
                     },
                 },
             },
@@ -152,6 +154,7 @@ export class ProjectsService {
             const tasks = app.modules.flatMap((m) => m.tasks);
             const totalTasks = tasks.length;
             const doneTasks = tasks.filter((t) => t.status === 'DONE').length;
+            const bugsCount = tasks.filter((t) => t.type === 'BUG').length;
             const progress =
                 totalTasks > 0 ? Math.round((doneTasks / totalTasks) * 100) : 0;
 
@@ -162,7 +165,7 @@ export class ProjectsService {
                 totalTasks,
                 doneTasks,
                 progress,
-                bugsCount: app.bugSheets.length,
+                bugsCount, // Now counts tasks with type: BUG instead of bugSheets
             };
         });
 

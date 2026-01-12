@@ -123,8 +123,12 @@ export class TasksService {
                 subtasks: {
                     include: {
                         comments: true,
+                        labels: { include: { label: true } },
                     },
                     orderBy: { order: 'asc' },
+                },
+                labels: {
+                    include: { label: true }
                 },
             },
             orderBy: { order: 'asc' },
@@ -146,6 +150,11 @@ export class TasksService {
                 },
                 comments: {
                     orderBy: { createdAt: 'asc' },
+                },
+                labels: {
+                    include: {
+                        label: true,
+                    },
                 },
             },
         });

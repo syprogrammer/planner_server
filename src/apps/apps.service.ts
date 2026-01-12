@@ -30,7 +30,6 @@ export class AppsService {
             },
             include: {
                 modules: true,
-                bugSheets: true,
             },
         });
     }
@@ -47,11 +46,8 @@ export class AppsService {
                     },
                     orderBy: { order: 'asc' },
                 },
-                bugSheets: {
-                    orderBy: { createdAt: 'desc' },
-                },
                 _count: {
-                    select: { modules: true, bugSheets: true },
+                    select: { modules: true },
                 },
             },
         });
@@ -73,14 +69,6 @@ export class AppsService {
                         },
                     },
                     orderBy: { order: 'asc' },
-                },
-                bugSheets: {
-                    include: {
-                        comments: {
-                            orderBy: { createdAt: 'asc' },
-                        },
-                    },
-                    orderBy: { createdAt: 'desc' },
                 },
             },
         });

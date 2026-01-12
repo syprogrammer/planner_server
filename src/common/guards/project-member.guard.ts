@@ -48,7 +48,6 @@ export class ProjectMemberGuard implements CanActivate {
             // If generic ID is missing, check for specific param names based on resource type
             if (!id && request.params) {
                 if (resourceType === 'task') id = request.params.taskId;
-                else if (resourceType === 'bugSheet') id = request.params.bugSheetId;
                 else if (resourceType === 'module') id = request.params.moduleId;
                 else if (resourceType === 'app') id = request.params.appId;
             }
@@ -74,12 +73,6 @@ export class ProjectMemberGuard implements CanActivate {
                         include: { module: { include: { app: { select: { projectId: true } } } } },
                     });
                     if (task && task.module && task.module.app) projectId = task.module.app.projectId;
-                } else if (resourceType === 'bugSheet') {
-                    const bugSheet = await this.prisma.bugSheet.findUnique({
-                        where: { id },
-                        include: { app: { select: { projectId: true } } },
-                    });
-                    if (bugSheet && bugSheet.app) projectId = bugSheet.app.projectId;
                 }
             } else {
                 // Check for parent IDs in query/body if ID param is missing (e.g. create/list actions)
