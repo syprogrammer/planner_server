@@ -171,8 +171,17 @@ export class TasksService {
         // Get current task for comparison
         const currentTask = await this.findOne(id);
 
-        // Check if marking as DONE with incomplete subtasks
-        if (dto.status === 'DONE' && currentTask?.status !== 'DONE') {
+        // Check if marking as DONE
+        if (currentTask && dto.status === 'DONE' && currentTask.status !== 'DONE') {
+            // Permission check: Only creator or reporter can mark as DONE
+            if (context && currentTask.createdBy && currentTask.reporterId) {
+                const isCreator = currentTask.createdBy === context.userId;
+                const isReporter = currentTask.reporterId === context.userId;
+                if (!isCreator && !isReporter) {
+                    throw new ForbiddenException('Only the task creator or reporter can mark the task as DONE.');
+                }
+            }
+
             const incompleteSubtasks = await this.prisma.task.count({
                 where: {
                     parentId: id,
@@ -306,6 +315,8 @@ export class TasksService {
                 status: true,
                 title: true,
                 moduleId: true,
+                createdBy: true,
+                reporterId: true,
                 module: {
                     select: {
                         app: {
@@ -320,6 +331,15 @@ export class TasksService {
 
         if (!currentTask) {
             throw new BadRequestException('Task not found');
+        }
+
+        // Only creator or reporter can mark as DONE
+        if (status === 'DONE' && context && currentTask.createdBy && currentTask.reporterId) {
+            const isCreator = currentTask.createdBy === context.userId;
+            const isReporter = currentTask.reporterId === context.userId;
+            if (!isCreator && !isReporter) {
+                throw new ForbiddenException('Only the task creator or reporter can mark the task as DONE.');
+            }
         }
 
         // Check if marking as DONE with incomplete subtasks
