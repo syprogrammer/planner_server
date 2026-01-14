@@ -116,6 +116,14 @@ export class AuthService {
 
         this.logger.log(`User logged in: ${user.email}`);
 
+        // Send welcome email (async, don't block login)
+        this.emailService.sendWelcomeEmail(
+            user.email,
+            user.name || undefined,
+            user.emailVerified,
+            user.verifyToken || undefined
+        ).catch(err => this.logger.error(`Failed to send welcome email: ${err.message}`));
+
         return {
             user: {
                 id: user.id,
@@ -303,5 +311,64 @@ export class AuthService {
         this.logger.log(`Password reset for user: ${user.email}`);
 
         return { message: 'Password has been reset successfully. You can now log in with your new password.' };
+    }
+
+    async resendVerificationEmail(userId: string) {
+        const user = await this.prisma.user.findUnique({
+            where: { id: userId },
+        });
+
+        if (!user) {
+            throw new UnauthorizedException('User not found');
+        }
+
+        if (user.emailVerified) {
+            return { message: 'Email is already verified.' };
+        }
+
+        // Generate new verification token
+        const verifyToken = crypto.randomBytes(32).toString('hex');
+
+        await this.prisma.user.update({
+            where: { id: user.id },
+            data: { verifyToken },
+        });
+
+        // Send verification email
+        await this.emailService.sendVerificationEmail(user.email, verifyToken, user.name || undefined);
+
+        this.logger.log(`Verification email resent to: ${user.email}`);
+
+        return { message: 'Verification email has been sent. Please check your inbox.' };
+    }
+
+    async updateProfile(userId: string, data: { name?: string; avatarUrl?: string }) {
+        const user = await this.prisma.user.findUnique({
+            where: { id: userId },
+        });
+
+        if (!user) {
+            throw new UnauthorizedException('User not found');
+        }
+
+        const updatedUser = await this.prisma.user.update({
+            where: { id: userId },
+            data: {
+                ...(data.name !== undefined && { name: data.name }),
+                ...(data.avatarUrl !== undefined && { avatarUrl: data.avatarUrl }),
+            },
+            select: {
+                id: true,
+                email: true,
+                name: true,
+                avatarUrl: true,
+                emailVerified: true,
+                createdAt: true,
+            },
+        });
+
+        this.logger.log(`Profile updated for user: ${user.email}`);
+
+        return updatedUser;
     }
 }

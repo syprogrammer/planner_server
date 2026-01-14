@@ -1,6 +1,6 @@
-import { Controller, Post, Get, Body, HttpCode, HttpStatus, UseGuards, Request } from '@nestjs/common';
+import { Controller, Post, Get, Body, HttpCode, HttpStatus, UseGuards, Request, Patch } from '@nestjs/common';
 import { AuthService } from './auth.service';
-import { RegisterDto, LoginDto, RefreshTokenDto, VerifyEmailDto, ForgotPasswordDto, ResetPasswordDto } from './dto';
+import { RegisterDto, LoginDto, RefreshTokenDto, VerifyEmailDto, ForgotPasswordDto, ResetPasswordDto, UpdateProfileDto } from './dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { Public } from '../common/decorators/public.decorator';
 
@@ -61,5 +61,21 @@ export class AuthController {
     @Get('me')
     async getMe(@Request() req: { user: { userId: string } }) {
         return this.authService.getMe(req.user.userId);
+    }
+
+    @UseGuards(JwtAuthGuard)
+    @Post('resend-verification')
+    @HttpCode(HttpStatus.OK)
+    async resendVerification(@Request() req: { user: { userId: string } }) {
+        return this.authService.resendVerificationEmail(req.user.userId);
+    }
+
+    @UseGuards(JwtAuthGuard)
+    @Patch('profile')
+    async updateProfile(
+        @Request() req: { user: { userId: string } },
+        @Body() dto: UpdateProfileDto,
+    ) {
+        return this.authService.updateProfile(req.user.userId, dto);
     }
 }
