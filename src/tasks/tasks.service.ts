@@ -111,7 +111,7 @@ export class TasksService {
 
     async findByModule(moduleId: string) {
         // Fetch only root tasks (no parent) and include their subtasks
-        return this.prisma.task.findMany({
+        const tasks = await this.prisma.task.findMany({
             where: {
                 moduleId,
                 parentId: null
@@ -133,6 +133,47 @@ export class TasksService {
             },
             orderBy: { order: 'asc' },
         });
+
+        // Collect all unique user IDs from tasks
+        const userIds = new Set<string>();
+        const collectUserIds = (taskList: any[]) => {
+            taskList.forEach(task => {
+                if (task.createdBy) userIds.add(task.createdBy);
+                if (task.reporterId) userIds.add(task.reporterId);
+                if (task.assigneeId) userIds.add(task.assigneeId);
+                if (task.subtasks) collectUserIds(task.subtasks);
+            });
+        };
+        collectUserIds(tasks);
+
+        // Fetch fresh user data if there are any user IDs
+        const userMap = new Map<string, { name: string | null; avatarUrl: string | null }>();
+        if (userIds.size > 0) {
+            const users = await this.prisma.user.findMany({
+                where: { id: { in: Array.from(userIds) } },
+                select: { id: true, name: true, avatarUrl: true }
+            });
+            users.forEach(user => userMap.set(user.id, { name: user.name, avatarUrl: user.avatarUrl }));
+        }
+
+        // Transform tasks to use fresh user names
+        const transformTask = (task: any) => {
+            const creator = task.createdBy ? userMap.get(task.createdBy) : null;
+            const reporter = task.reporterId ? userMap.get(task.reporterId) : null;
+            const assignee = task.assigneeId ? userMap.get(task.assigneeId) : null;
+
+            return {
+                ...task,
+                // Use fresh name from User table, fallback to stored name
+                creatorName: creator?.name || task.creatorName,
+                reporterName: reporter?.name || task.reporterName,
+                assignedTo: assignee?.name || task.assignedTo,
+                // Transform subtasks recursively
+                subtasks: task.subtasks?.map(transformTask) || [],
+            };
+        };
+
+        return tasks.map(transformTask);
     }
 
     async findOne(id: string) {

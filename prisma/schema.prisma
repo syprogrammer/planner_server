@@ -125,7 +125,8 @@ model Task {
   status      Status   @default(TODO)
 
   // Assignment
-  assignedTo String?
+  assigneeId String?  // User ID of assigned person
+  assignedTo String?  // Name (for display/backwards compatibility)
   remarks    String?
 
   // Dates

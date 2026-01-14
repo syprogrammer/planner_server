@@ -15,7 +15,7 @@ export class EmailService {
         } else {
             this.logger.warn('RESEND_API_KEY not configured - emails will be logged only');
         }
-        this.fromEmail = this.configService.get<string>('EMAIL_FROM') || 'noreply@example.com';
+        this.fromEmail = this.configService.get<string>('EMAIL_FROM') || 'noreply@syprogrammer.space';
     }
 
     async sendVerificationEmail(email: string, token: string, name?: string): Promise<boolean> {
