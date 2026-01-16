@@ -212,6 +212,7 @@ export class AuthService {
                 email: true,
                 name: true,
                 avatarUrl: true,
+                emailVerified: true,
                 createdAt: true,
             },
         });
