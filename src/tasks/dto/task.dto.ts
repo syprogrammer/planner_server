@@ -71,6 +71,10 @@ export class UpdateTaskDto {
 
     @IsString()
     @IsOptional()
+    assigneeId?: string;
+
+    @IsString()
+    @IsOptional()
     assignedTo?: string;
 
     @IsString()
@@ -86,6 +90,10 @@ export class UpdateTaskDto {
     @IsDateString({}, { message: 'endDate must be a valid ISO 8601 date string' })
     @IsOptional()
     endDate?: string | null;
+
+    @IsString()
+    @IsOptional()
+    moduleId?: string;
 
     @IsString()
     @IsOptional()
