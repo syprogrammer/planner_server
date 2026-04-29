@@ -40,8 +40,8 @@ export class AuthService {
     ) {
         this.jwtSecret = this.configService.get<string>('JWT_SECRET') || 'default-secret-change-me';
         this.jwtRefreshSecret = this.configService.get<string>('JWT_REFRESH_SECRET') || 'default-refresh-secret-change-me';
-        this.accessTokenTtl = this.configService.get<number>('JWT_ACCESS_TTL') || 900; // 15 minutes in seconds
-        this.refreshTokenTtl = this.configService.get<number>('JWT_REFRESH_TTL') || 604800; // 7 days in seconds
+        this.accessTokenTtl = Number(this.configService.get<string>('JWT_ACCESS_TTL')) || 900; // 15 minutes in seconds
+        this.refreshTokenTtl = Number(this.configService.get<string>('JWT_REFRESH_TTL')) || 604800; // 7 days in seconds
     }
 
     async register(dto: RegisterDto) {
@@ -189,7 +189,7 @@ export class AuthService {
             });
 
             return tokens;
-        } catch (error) {
+        } catch (error:any) {
             this.logger.error(`Refresh token error: ${error.message}`);
             throw new UnauthorizedException('Invalid refresh token');
         }
