@@ -7,8 +7,10 @@ export class EmailService {
     private readonly logger = new Logger(EmailService.name);
     private resend: Resend | null = null;
     private readonly fromEmail: string;
+    private readonly nodeEnv: string;
 
     constructor(private configService: ConfigService) {
+        this.nodeEnv = this.configService.get<string>('NODE_ENV') || 'development';
         const apiKey = this.configService.get<string>('RESEND_API_KEY');
         if (apiKey) {
             this.resend = new Resend(apiKey);
@@ -18,9 +20,20 @@ export class EmailService {
         this.fromEmail = this.configService.get<string>('EMAIL_FROM') || 'noreply@syprogrammer.space';
     }
 
+    private getFrontendUrl(): string {
+        const frontendUrl = this.configService.get<string>('FRONTEND_URL');
+        if (!frontendUrl) {
+            if (this.nodeEnv === 'production') {
+                throw new Error('FRONTEND_URL environment variable is required in production');
+            }
+            return 'http://localhost:3000';
+        }
+        return frontendUrl;
+    }
+
     async sendVerificationEmail(email: string, token: string, name?: string): Promise<boolean> {
-        const appUrl = this.configService.get<string>('APP_URL') || 'http://localhost:3000';
-        const verifyUrl = `${appUrl}/verify-email?token=${token}`;
+        const frontendUrl = this.getFrontendUrl();
+        const verifyUrl = `${frontendUrl}/verify-email?token=${token}`;
 
         const subject = 'Verify your email address';
         const html = `
@@ -64,14 +77,14 @@ export class EmailService {
 
             this.logger.log(`Verification email sent to ${email}`);
             return true;
-        } catch (error) {
+        } catch (error:any) {
             this.logger.error(`Failed to send verification email: ${error.message}`);
             return false;
         }
     }
 
     async sendPasswordResetEmail(email: string, token: string, name?: string): Promise<boolean> {
-        const appUrl = this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3000';
+        const appUrl = this.getFrontendUrl();
         const resetUrl = `${appUrl}/reset-password?token=${token}`;
 
         const subject = 'Reset your password';
@@ -115,15 +128,15 @@ export class EmailService {
 
             this.logger.log(`Password reset email sent to ${email}`);
             return true;
-        } catch (error) {
+        } catch (error:any) {
             this.logger.error(`Failed to send password reset email: ${error.message}`);
             return false;
         }
     }
 
     async sendWelcomeEmail(email: string, name?: string, emailVerified?: boolean, verifyToken?: string): Promise<boolean> {
-        const appUrl = this.configService.get<string>('APP_URL') || 'http://localhost:3000';
-        const verifyUrl = verifyToken ? `${appUrl}/verify-email?token=${verifyToken}` : null;
+        const frontendUrl = this.getFrontendUrl();
+        const verifyUrl = verifyToken ? `${frontendUrl}/verify-email?token=${verifyToken}` : null;
 
         const subject = 'Welcome back to Planner!';
         const verificationSection = !emailVerified && verifyUrl ? `
@@ -144,7 +157,7 @@ export class EmailService {
                 <p>You've successfully signed in to Planner.</p>
                 ${verificationSection}
                 <div style="text-align: center; margin: 30px 0;">
-                    <a href="${appUrl}/dashboard" 
+                    <a href="${frontendUrl}/dashboard" 
                        style="background-color: #0052CC; color: white; padding: 12px 24px; 
                               text-decoration: none; border-radius: 6px; display: inline-block;">
                         Go to Dashboard
@@ -177,7 +190,7 @@ export class EmailService {
 
             this.logger.log(`Welcome email sent to ${email}`);
             return true;
-        } catch (error) {
+        } catch (error:any  ) {
             this.logger.error(`Failed to send welcome email: ${error.message}`);
             return false;
         }
